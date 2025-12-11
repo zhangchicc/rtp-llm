@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rtp_llm/cpp/cache_new/BatchKVCacheResource.h"
+#include "rtp_llm/cpp/core/Event.h"
 
 namespace rtp_llm {
 
@@ -16,14 +17,27 @@ public:
         virtual ~AsyncContext() = default;
 
     public:
+        virtual bool done() const    = 0;
         virtual bool success() const = 0;
-        virtual void cancel()        = 0;
-        virtual void waitDone()      = 0;
     };
 
     class Meta {
     public:
+        Meta() = default;
+        Meta(int64_t request_id, DeviceEventPtr event): request_id_(request_id), event_(event) {}
         virtual ~Meta() = default;
+
+    public:
+        int64_t requestId() const {
+            return request_id_;
+        }
+        DeviceEventPtr event() const {
+            return event_;
+        }
+
+    private:
+        int64_t        request_id_;
+        DeviceEventPtr event_;
     };
 
 public:
