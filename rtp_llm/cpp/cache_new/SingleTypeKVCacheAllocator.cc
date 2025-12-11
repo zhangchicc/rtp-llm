@@ -55,6 +55,7 @@ MallocResult SingleTypeKVCacheAllocator::initMallocForCommonLen(const MallocInfo
     if (!full_kv_cache_group_->malloc(cache_keys, blocks_0, common_seq_len)) {
         return {false, 0};
     }
+    makeLayerBlockIds(kv_resource->cacheResource(0));
 
     // other batches reference batch 0's blocks
     for (int batch_id = 1; batch_id < kv_resource->batchSize(); ++batch_id) {
@@ -91,6 +92,7 @@ MallocResult SingleTypeKVCacheAllocator::incrMalloc(const MallocInfo& malloc_inf
             all_success = false;
             break;
         }
+        makeLayerBlockIds(kv_resource->cacheResource(current_batch));
     }
 
     if (all_success) {
@@ -206,6 +208,18 @@ void SingleTypeKVCacheAllocator::regUserMr(size_t model_id) {
     }
 }
 
+std::vector<std::pair<rtp_llm::BufferPtr, size_t>> SingleTypeKVCacheAllocator::getAllBuffers() const {
+    std::vector<std::pair<rtp_llm::BufferPtr, size_t>> buffers;
+    if (block_pool_) {
+        auto buffer = block_pool_->getCacheAlignedBuffer();
+        if (buffer) {
+            auto block_size = block_pool_->blockSize();
+            buffers.push_back(std::make_pair(buffer, block_size));
+        }
+    }
+    return buffers;
+}
+
 // Update kv blocks for beam search or multi-return sequences.
 // - batch_kv_cache_resource: in/out, batch blocks and cache_keys will be rearranged based on block_src_batch
 // - block_src_batch: new batch i forks from old batch block_src_batch[i]
@@ -291,10 +305,24 @@ bool SingleTypeKVCacheAllocator::updateKVBlock(const BatchKVCacheResourcePtr& kv
 
                 block_update_mapping.push_back(BlockIdPair{old_block, new_block});
             }
+            makeLayerBlockIds(kv_cache_resource->cacheResource(new_batch_idx));
         }
         --fork_count;
     }
     return true;
+}
+
+void SingleTypeKVCacheAllocator::makeLayerBlockIds(KVCacheResourceV1& resource) const {
+    if (resource.groupBlocks().empty() || !(resource.groupBlocks()[0])) {
+        resource.layerBlockIds().clear();
+        return;
+    }
+    const int layer_num = config_.layer_num;
+    resource.layerBlockIds().resize(static_cast<size_t>(layer_num));
+    const auto& blocks = resource.groupBlocks()[0];
+    for (int layer = 0; layer < layer_num; ++layer) {
+        resource.layerBlockIds()[static_cast<size_t>(layer)] = blocks;
+    }
 }
 
 }  // namespace rtp_llm

@@ -68,6 +68,10 @@ public:
         return cache_keys;
     }
 
+    LayerBlockIds& layerBlockIds() {
+        return layer_block_ids;
+    }
+
     std::string debugString() const {
         std::stringstream debug_string;
         for (int group_id = 0; group_id < group_block_ids.size(); group_id++) {
