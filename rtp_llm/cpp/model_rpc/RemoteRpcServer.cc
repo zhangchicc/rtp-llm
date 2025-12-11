@@ -15,7 +15,8 @@ grpc::Status RemoteRpcServer::init(const EngineInitParams&                      
     }
     initLocalHostInfo();
     initLocalPeerInfo();
-    initCacheStore(maga_init_params.gpt_init_parameter, propose_params_ptr);
+    // initCacheStore(maga_init_params.gpt_init_parameter, propose_params_ptr);
+
     return grpc::Status::OK;
 }
 
@@ -90,12 +91,12 @@ void RemoteRpcServer::initCacheStore(const GptInitParameter&                init
     RTP_LLM_LOG_INFO("cache store init success");
 
     device->setCacheStore(cache_store_);
-    cache_manager->regUserMr(maga_init_params_.model_id);
+    // cache_manager->regUserMr(maga_init_params_.model_id);
     if (propose_params) {
         if (propose_params->mtp_model_params_) {
             for (size_t mtp_model_id = 0; mtp_model_id < propose_params->mtp_model_params_->size(); mtp_model_id++) {
                 const auto& mtp_cache_manager = engine_->resourceContext().mtp_cache_managers[mtp_model_id];
-                mtp_cache_manager->regUserMr(propose_params->mtp_model_params_->at(mtp_model_id)->model_id);
+                // mtp_cache_manager->regUserMr(propose_params->mtp_model_params_->at(mtp_model_id)->model_id);
             }
         }
     }

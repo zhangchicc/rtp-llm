@@ -4,6 +4,8 @@
 #include "rtp_llm/cpp/model_rpc/LocalRpcServiceImpl.h"
 #include "rtp_llm/cpp/model_rpc/PrefillRpcServer.h"
 #include "rtp_llm/cpp/model_rpc/DecodeRpcServer.h"
+#include "rtp_llm/cpp/model_rpc/PrefillRpcServerNew2.h"
+#include "rtp_llm/cpp/model_rpc/DecodeRpcServerNew2.h"
 #include "rtp_llm/cpp/model_rpc/PrefillRpcServerNew.h"
 #include "rtp_llm/cpp/model_rpc/DecodeRpcServerNew.h"
 
@@ -20,21 +22,20 @@ public:
     grpc::Status GenerateStreamCall(grpc::ServerContext*                   context,
                                     const GenerateInputPB*                 request,
                                     grpc::ServerWriter<GenerateOutputsPB>* writer) override {
-        if (decode_entrance_) {
-            if (!decode_server_new_) {
-                auto error_msg = "server not implement GenerateStreamCall";
-                RTP_LLM_LOG_ERROR(error_msg);
-                return grpc::Status(grpc::StatusCode::INTERNAL, error_msg);
-            }
-            return decode_server_new_->GenerateStreamCall(context, request, writer);
+        if (decode_server_new2_) {
+            RTP_LLM_LOG_INFO("remote rpc service GenerateStreamCall, decode server new2: %p",
+                             decode_server_new2_.get());
+            return decode_server_new2_->GenerateStreamCall(context, request, writer);
         }
 
-        if (!prefill_server_) {
-            auto error_msg = "server not implement GenerateStreamCall";
-            RTP_LLM_LOG_ERROR(error_msg);
-            return grpc::Status(grpc::StatusCode::INTERNAL, error_msg);
+        if (prefill_server_new2_) {
+            RTP_LLM_LOG_INFO("remote rpc service GenerateStreamCall, prefill server new2: %p",
+                             prefill_server_new2_.get());
+            return prefill_server_new2_->GenerateStreamCall(context, request, writer);
         }
-        return prefill_server_->GenerateStreamCall(context, request, writer);
+
+        RTP_LLM_LOG_INFO("remote rpc service GenerateStreamCall, local server: %p", local_server_.get());
+        return local_server_->GenerateStreamCall(context, request, writer);
     }
 
     grpc::Status
@@ -99,20 +100,40 @@ public:
         return prefill_server_new_->RemoteFinish(context, request, response);
     }
 
+    grpc::Status StartLoad(grpc::ServerContext*                  context,
+                           const P2PConnectorStartLoadRequestPB* request,
+                           P2PConnectorStartLoadResponsePB*      response) override {
+        if (!prefill_server_new2_) {
+            auto error_msg = "server not implement StartLoad";
+            RTP_LLM_LOG_ERROR(error_msg);
+            return grpc::Status(grpc::StatusCode::INTERNAL, error_msg);
+        }
+        RTP_LLM_LOG_INFO("remote rpc service StartLoad, prefill server new2: %p", prefill_server_new2_.get());
+        return prefill_server_new2_->StartLoad(context, request, response);
+    }
+
     void stop() override {
         if (prefill_server_) {
             prefill_server_->stop();
-        } else {
-            decode_server_->stop();
+        }
+        if (prefill_server_new2_) {
+            prefill_server_new2_->stop();
+        }
+        if (decode_server_new2_) {
+            decode_server_new2_->stop();
         }
     }
 
 private:
-    std::shared_ptr<PrefillRpcServer>    prefill_server_;
-    std::shared_ptr<DecodeRpcServer>     decode_server_;
-    bool                                 decode_entrance_ = false;
+    std::shared_ptr<PrefillRpcServer> prefill_server_;
+    std::shared_ptr<DecodeRpcServer>  decode_server_;
+    bool                              decode_entrance_ = false;
+
     std::shared_ptr<PrefillRpcServerNew> prefill_server_new_;
     std::shared_ptr<DecodeRpcServerNew>  decode_server_new_;
+
+    std::shared_ptr<PrefillRpcServerNew2> prefill_server_new2_;
+    std::shared_ptr<DecodeRpcServerNew2>  decode_server_new2_;
 };
 
 }  // namespace rtp_llm
