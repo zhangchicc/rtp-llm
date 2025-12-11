@@ -1,21 +1,23 @@
 #include "rtp_llm/cpp/cache_new/TpBroadcastManager.h"
 #include "rtp_llm/cpp/utils/AssertUtils.h"
+#include "rtp_llm/cpp/utils/TimeUtil.h"
 
 namespace rtp_llm {
 
 // -------------------------------- TPBroadcastResult --------------------------------
 
-void TPBroadcastResult::waitDone() {
+void TPBroadcastResult::waitDone(int timeout_ms) {
     bool              all_request_success = true;
     const int         worker_size         = worker_rpc_contexts_.size();
     std::vector<bool> finished(worker_size, false);
 
-    while (true) {
+    const int once_timeout_ms = 1;
+    auto      deadline_ms     = currentTimeMs() + timeout_ms;
+    while (currentTimeMs() < deadline_ms) {
         if (finished_count_ == worker_size) {
             break;
         }
-        const int  once_timeout_ms = 1;
-        const auto once_deadline   = std::chrono::system_clock::now() + std::chrono::milliseconds(once_timeout_ms);
+        const auto once_deadline = std::chrono::system_clock::now() + std::chrono::milliseconds(once_timeout_ms);
         for (int rank = 0; rank < worker_size; ++rank) {
             if (finished[rank]) {
                 continue;
@@ -58,11 +60,15 @@ void TPBroadcastResult::waitDone() {
 }
 
 bool TPBroadcastResult::success() const {
-    return all_request_success_;
+    return all_request_success_ && done();
 }
 
-std::vector<BroadcastTpResponsePB> TPBroadcastResult::responses() const {
-    std::vector<BroadcastTpResponsePB> responses;
+bool TPBroadcastResult::done() const {
+    return finished_count_ == worker_rpc_contexts_.size();
+}
+
+std::vector<std::shared_ptr<BroadcastTpResponsePB>> TPBroadcastResult::responses() const {
+    std::vector<std::shared_ptr<BroadcastTpResponsePB>> responses;
     responses.reserve(worker_rpc_contexts_.size());
     for (const auto& worker_rpc_context : worker_rpc_contexts_) {
         responses.push_back(worker_rpc_context->response);
@@ -112,19 +118,37 @@ std::shared_ptr<TPBroadcastResult> TpBroadcastManager::broadcast(const std::vect
         auto& ctx           = contexts.at(rank);
         ctx->stub           = conn_status.value().stub;
         ctx->request        = requests.at(rank);
+        ctx->response       = std::make_shared<BroadcastTpResponsePB>();
         ctx->server_addr    = addr;
         ctx->timeout_ms     = timeout_ms;
         ctx->client_context = std::make_shared<grpc::ClientContext>();
-        ctx->client_context->set_deadline(deadline);
+        if (timeout_ms > 0) {
+            ctx->client_context->set_deadline(deadline);
+        }
     }
 
     for (int rank = 0; rank < worker_size; ++rank) {
         auto& ctx    = contexts.at(rank);
         auto  reader = ctx->stub->AsyncBroadcastTp(ctx->client_context.get(), ctx->request, &ctx->completion_queue);
-        reader->Finish(&ctx->response, &ctx->status, reinterpret_cast<void*>(static_cast<intptr_t>(rank)));
+        reader->Finish(ctx->response.get(), &ctx->status, reinterpret_cast<void*>(ctx.get()));
     }
 
     return std::make_shared<TPBroadcastResult>(std::move(contexts));
+}
+
+void TPBroadcastService::registerCallback(std::shared_ptr<Callback> callback) {
+    callbacks_.push_back(callback);
+}
+
+grpc::Status TPBroadcastService::broadcast(::grpc::ServerContext*        context,
+                                           const ::BroadcastTpRequestPB* request,
+                                           ::BroadcastTpResponsePB*      response) {
+    for (const auto& callback : callbacks_) {
+        if (callback->shouldProcess(*request)) {
+            return callback->onBroadcastTp(*request, *response);
+        }
+    }
+    return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "no callback should process this request");
 }
 
 }  // namespace rtp_llm
