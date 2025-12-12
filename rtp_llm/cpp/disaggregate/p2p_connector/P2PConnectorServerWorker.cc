@@ -1,4 +1,4 @@
-#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorPrefillWorker.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorServerWorker.h"
 
 #include "rtp_llm/cpp/utils/Logger.h"
 #include "rtp_llm/cpp/utils/TimeUtil.h"
@@ -11,9 +11,9 @@
 
 namespace rtp_llm {
 
-P2PConnectorPrefillWorker::P2PConnectorPrefillWorker(const GptInitParameter&                  gpt_init_parameter,
-                                                     const std::shared_ptr<KVCacheAllocator>& kv_cache_allocator,
-                                                     const kmonitor::MetricsReporterPtr&      metrics_reporter):
+P2PConnectorServerWorker::P2PConnectorServerWorker(const GptInitParameter&                  gpt_init_parameter,
+                                                   const std::shared_ptr<KVCacheAllocator>& kv_cache_allocator,
+                                                   const kmonitor::MetricsReporterPtr&      metrics_reporter):
     gpt_init_parameter_(gpt_init_parameter),
     kv_cache_allocator_(kv_cache_allocator),
     metrics_reporter_(metrics_reporter),
@@ -22,15 +22,15 @@ P2PConnectorPrefillWorker::P2PConnectorPrefillWorker(const GptInitParameter&    
     load_contexts_(std::make_shared<PrefillWorkerLoadContextStore>()),
     store_wait_thread_stop_(false) {}
 
-P2PConnectorPrefillWorker::~P2PConnectorPrefillWorker() {
+P2PConnectorServerWorker::~P2PConnectorServerWorker() {
     if (store_wait_thread_) {
         store_wait_thread_->stop();
     }
 }
 
-bool P2PConnectorPrefillWorker::init() {
+bool P2PConnectorServerWorker::init() {
     if (!kv_cache_allocator_) {
-        RTP_LLM_LOG_ERROR("P2PConnectorPrefillWorker init failed: kv_cache_allocator is null");
+        RTP_LLM_LOG_ERROR("P2PConnectorServerWorker init failed: kv_cache_allocator is null");
         return false;
     }
 
@@ -40,14 +40,14 @@ bool P2PConnectorPrefillWorker::init() {
     // init transfer client
     transfer_client_ = std::make_shared<TransferClient>(layer_block_converter, metrics_reporter_);
     if (!transfer_client_) {
-        RTP_LLM_LOG_ERROR("P2PConnectorPrefillWorker init failed: transfer_client is null");
+        RTP_LLM_LOG_ERROR("P2PConnectorServerWorker init failed: transfer_client is null");
         return false;
     }
     if (!transfer_client_->init(gpt_init_parameter_.cache_store_config.cache_store_rdma_mode,
                                 gpt_init_parameter_.cache_store_config.messager_io_thread_count,
                                 gpt_init_parameter_.cache_store_config.messager_io_thread_count,
                                 gpt_init_parameter_.cache_store_config.messager_worker_thread_count)) {
-        RTP_LLM_LOG_ERROR("P2PConnectorPrefillWorker init failed: transfer_client init failed");
+        RTP_LLM_LOG_ERROR("P2PConnectorServerWorker init failed: transfer_client init failed");
         return false;
     }
 
@@ -55,7 +55,7 @@ bool P2PConnectorPrefillWorker::init() {
     auto buffers = kv_cache_allocator_->getAllBuffers();
     for (auto& [buffer, size] : buffers) {
         if (!transfer_client_->registerUserMr(buffer, size)) {
-            RTP_LLM_LOG_ERROR("P2PConnectorPrefillWorker init failed: register user mr failed, buffer: %p, size: %ld",
+            RTP_LLM_LOG_ERROR("P2PConnectorServerWorker init failed: register user mr failed, buffer: %p, size: %ld",
                               buffer->data(),
                               size);
             return false;
@@ -64,29 +64,29 @@ bool P2PConnectorPrefillWorker::init() {
 
     // init store wait thread
     store_wait_thread_ =
-        autil::LoopThread::createLoopThread(std::bind(&P2PConnectorPrefillWorker::storeWaitThreadProcess, this),
+        autil::LoopThread::createLoopThread(std::bind(&P2PConnectorServerWorker::storeWaitThreadProcess, this),
                                             100,
-                                            "P2PConnectorPrefillWorkerStoreWaitThread");
+                                            "P2PConnectorServerWorkerStoreWaitThread");
     if (!store_wait_thread_) {
-        RTP_LLM_LOG_ERROR("P2PConnectorPrefillWorker init failed: store_wait_thread is null");
+        RTP_LLM_LOG_ERROR("P2PConnectorServerWorker init failed: store_wait_thread is null");
         return false;
     }
-    RTP_LLM_LOG_INFO("P2PConnectorPrefillWorker init success");
+    RTP_LLM_LOG_INFO("P2PConnectorServerWorker init success");
     return true;
 }
 
-bool P2PConnectorPrefillWorker::writeByLayer(int                                       layer_id,
-                                             const std::shared_ptr<KVCacheResourceV1>& resource,
-                                             int64_t                                   request_id,
-                                             DeviceEventPtr                            event) {
-    auto collector = std::make_shared<P2PConnectorPrefillWorkerStoreMetricsCollector>();
+bool P2PConnectorServerWorker::writeByLayer(int                                       layer_id,
+                                            const std::shared_ptr<KVCacheResourceV1>& resource,
+                                            int64_t                                   request_id,
+                                            DeviceEventPtr                            event) {
+    auto collector = std::make_shared<P2PConnectorServerWorkerStoreMetricsCollector>();
 
     auto layer_cache_buffer = LayerCacheBufferUtil::convert(*resource, 0, layer_id);
     if (!layer_cache_buffer) {
-        RTP_LLM_LOG_ERROR("P2PConnectorPrefillWorker writeByLayer failed: layer_cache_buffer is null");
+        RTP_LLM_LOG_ERROR("P2PConnectorServerWorker writeByLayer failed: layer_cache_buffer is null");
         if (metrics_reporter_) {
             collector->success = false;
-            metrics_reporter_->report<P2PConnectorMetrics, P2PConnectorPrefillWorkerStoreMetricsCollector>(
+            metrics_reporter_->report<P2PConnectorMetrics, P2PConnectorServerWorkerStoreMetricsCollector>(
                 nullptr, collector.get());
         }
         return false;
@@ -98,11 +98,11 @@ bool P2PConnectorPrefillWorker::writeByLayer(int                                
         std::unique_lock<std::mutex> lock(store_wait_mutex_);
         store_wait_contexts_.emplace_back(request_id, event, layer_cache_buffer, deadline_ms, collector);
     }
-    RTP_LLM_LOG_INFO("P2PConnectorPrefillWorker writeByLayer end, request_id: %ld, layer_id: %d", request_id, layer_id);
+    RTP_LLM_LOG_INFO("P2PConnectorServerWorker writeByLayer end, request_id: %ld, layer_id: %d", request_id, layer_id);
     return true;
 }
 
-void P2PConnectorPrefillWorker::storeWaitThreadProcess() {
+void P2PConnectorServerWorker::storeWaitThreadProcess() {
     {
         std::unique_lock<std::mutex> lock(store_wait_mutex_);
         auto                         iter = store_wait_contexts_.begin();
@@ -118,7 +118,7 @@ void P2PConnectorPrefillWorker::storeWaitThreadProcess() {
                 collector->success                 = false;
                 collector->store_wait_done_time_us = currentTimeUs() - collector->start_time_us;
                 if (metrics_reporter_) {
-                    metrics_reporter_->report<P2PConnectorMetrics, P2PConnectorPrefillWorkerStoreMetricsCollector>(
+                    metrics_reporter_->report<P2PConnectorMetrics, P2PConnectorServerWorkerStoreMetricsCollector>(
                         nullptr, collector.get());
                 }
                 continue;
@@ -129,7 +129,7 @@ void P2PConnectorPrefillWorker::storeWaitThreadProcess() {
                 iter = store_wait_contexts_.erase(iter);
                 if (metrics_reporter_) {
                     collector->store_wait_done_time_us = currentTimeUs() - collector->start_time_us;
-                    metrics_reporter_->report<P2PConnectorMetrics, P2PConnectorPrefillWorkerStoreMetricsCollector>(
+                    metrics_reporter_->report<P2PConnectorMetrics, P2PConnectorServerWorkerStoreMetricsCollector>(
                         nullptr, collector.get());
                 }
             } else {
@@ -142,28 +142,28 @@ void P2PConnectorPrefillWorker::storeWaitThreadProcess() {
     computed_buffers_->checkTimeout();
     load_contexts_->checkTimeout();
     if (metrics_reporter_) {
-        auto collector                    = std::make_shared<P2PConnectorPrefillWorkerStatusMetricsCollector>();
+        auto collector                    = std::make_shared<P2PConnectorServerWorkerStatusMetricsCollector>();
         collector->wait_store_event_count = store_wait_contexts_.size();
         collector->task_count             = load_contexts_->getContextsCount();
         collector->computed_request_count = computed_buffers_->getBuffersCount();
-        metrics_reporter_->report<P2PConnectorMetrics, P2PConnectorPrefillWorkerStatusMetricsCollector>(
-            nullptr, collector.get());
+        metrics_reporter_->report<P2PConnectorMetrics, P2PConnectorServerWorkerStatusMetricsCollector>(nullptr,
+                                                                                                       collector.get());
     }
 }
 
-bool P2PConnectorPrefillWorker::write(int64_t                                              request_id,
-                                      const std::string&                                   unique_key,
-                                      int64_t                                              deadline_ms,
-                                      const std::vector<std::pair<std::string, uint32_t>>& decode_transfer_servers) {
+bool P2PConnectorServerWorker::write(int64_t                                              request_id,
+                                     const std::string&                                   unique_key,
+                                     int64_t                                              deadline_ms,
+                                     const std::vector<std::pair<std::string, uint32_t>>& decode_transfer_servers) {
     int64_t start_time_us = currentTimeUs();
-    auto    collector     = std::make_shared<P2PConnectorPrefillWorkerWriteMetricsCollector>();
+    auto    collector     = std::make_shared<P2PConnectorServerWorkerWriteMetricsCollector>();
 
     auto asymmetric_tp_contexts = asymmetric_tp_util_->handleAsymmetricTP(decode_transfer_servers);
     if (asymmetric_tp_contexts.empty()) {
-        RTP_LLM_LOG_ERROR("P2PConnectorPrefillWorker write: asymmetric_tp_contexts is empty");
+        RTP_LLM_LOG_ERROR("P2PConnectorServerWorker write: asymmetric_tp_contexts is empty");
         if (metrics_reporter_) {
             collector->success = false;
-            metrics_reporter_->report<P2PConnectorMetrics, P2PConnectorPrefillWorkerWriteMetricsCollector>(
+            metrics_reporter_->report<P2PConnectorMetrics, P2PConnectorServerWorkerWriteMetricsCollector>(
                 nullptr, collector.get());
         }
         return false;
@@ -186,7 +186,7 @@ bool P2PConnectorPrefillWorker::write(int64_t                                   
     if (!computed_layer_cache_buffer) {
         if (metrics_reporter_) {
             collector->success = false;
-            metrics_reporter_->report<P2PConnectorMetrics, P2PConnectorPrefillWorkerWriteMetricsCollector>(
+            metrics_reporter_->report<P2PConnectorMetrics, P2PConnectorServerWorkerWriteMetricsCollector>(
                 nullptr, collector.get());
         }
         return false;
@@ -229,29 +229,29 @@ bool P2PConnectorPrefillWorker::write(int64_t                                   
     if (metrics_reporter_) {
         collector->success            = load_context->success();
         collector->total_cost_time_us = currentTimeUs() - start_time_us;
-        metrics_reporter_->report<P2PConnectorMetrics, P2PConnectorPrefillWorkerWriteMetricsCollector>(nullptr,
-                                                                                                       collector.get());
+        metrics_reporter_->report<P2PConnectorMetrics, P2PConnectorServerWorkerWriteMetricsCollector>(nullptr,
+                                                                                                      collector.get());
     }
     return load_context->success();
 }
 
-void P2PConnectorPrefillWorker::cancelWrite(int64_t request_id, const std::string& unique_key) {
+void P2PConnectorServerWorker::cancelWrite(int64_t request_id, const std::string& unique_key) {
     auto load_context = load_contexts_->getContext(request_id);
     if (load_context) {
         load_context->setCanceled();
     }
 }
 
-P2PConnectorPrefillWorkerTPCallback::P2PConnectorPrefillWorkerTPCallback(
-    const std::shared_ptr<P2PConnectorPrefillWorker>& p2p_connector_prefill_worker):
+P2PConnectorServerWorkerTPCallback::P2PConnectorServerWorkerTPCallback(
+    const std::shared_ptr<P2PConnectorServerWorker>& p2p_connector_prefill_worker):
     p2p_connector_prefill_worker_(p2p_connector_prefill_worker) {}
 
-bool P2PConnectorPrefillWorkerTPCallback::shouldProcess(const BroadcastTpRequestPB& request) {
+bool P2PConnectorServerWorkerTPCallback::shouldProcess(const BroadcastTpRequestPB& request) {
     return request.has_p2p_request();
 }
 
-grpc::Status P2PConnectorPrefillWorkerTPCallback::onBroadcastTp(const BroadcastTpRequestPB& request,
-                                                                BroadcastTpResponsePB&      response) {
+grpc::Status P2PConnectorServerWorkerTPCallback::onBroadcastTp(const BroadcastTpRequestPB& request,
+                                                               BroadcastTpResponsePB&      response) {
     auto p2p_request  = request.p2p_request();
     auto request_id   = p2p_request.request_id();
     auto unique_key   = p2p_request.unique_key();
@@ -264,7 +264,7 @@ grpc::Status P2PConnectorPrefillWorkerTPCallback::onBroadcastTp(const BroadcastT
     }
     bool success = p2p_connector_prefill_worker_->write(request_id, unique_key, deadline_ms, decode_transfer_servers);
 
-    RTP_LLM_LOG_INFO("P2PConnectorPrefillWorkerTPCallback::onBroadcastTp: write success: %d", success);
+    RTP_LLM_LOG_INFO("P2PConnectorServerWorkerTPCallback::onBroadcastTp: write success: %d", success);
     response.mutable_p2p_response()->set_success(success);
     return success ? grpc::Status::OK : grpc::Status(grpc::StatusCode::INTERNAL, "write failed");
 }

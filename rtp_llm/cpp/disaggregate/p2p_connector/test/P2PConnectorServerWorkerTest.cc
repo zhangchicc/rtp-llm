@@ -4,7 +4,7 @@
 #include <vector>
 #include <chrono>
 
-#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorPrefillWorker.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorServerWorker.h"
 #include "rtp_llm/cpp/disaggregate/transfer/LayerCacheBuffer.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/ComputedLayerCacheBuffer.h"
 #include "rtp_llm/cpp/utils/TimeUtil.h"
@@ -131,8 +131,8 @@ private:
     std::vector<TransferCallInfo> transfer_calls_;
 };
 
-// Test fixture for P2PConnectorPrefillWorker
-class P2PConnectorPrefillWorkerTest: public ::testing::Test {
+// Test fixture for P2PConnectorServerWorker
+class P2PConnectorServerWorkerTest: public ::testing::Test {
 protected:
     void SetUp() override {
         // 创建测试用的 GptInitParameter
@@ -149,8 +149,8 @@ protected:
         // 创建测试用的 KVCacheAllocator (使用 nullptr，因为测试不依赖实际分配器)
         kv_cache_allocator_ = nullptr;
 
-        // 创建 P2PConnectorPrefillWorker（不调用 init，避免创建 TransferClient）
-        worker_ = std::make_unique<P2PConnectorPrefillWorker>(gpt_init_parameter_, device_base_, kv_cache_allocator_);
+        // 创建 P2PConnectorServerWorker（不调用 init，避免创建 TransferClient）
+        worker_ = std::make_unique<P2PConnectorServerWorker>(gpt_init_parameter_, device_base_, kv_cache_allocator_);
 
         computed_buffers_     = worker_->getComputedBuffersStore();
         load_contexts_        = worker_->getLoadContexts();
@@ -211,7 +211,7 @@ protected:
     GptInitParameter                               gpt_init_parameter_;
     DeviceBase*                                    device_base_;
     std::shared_ptr<KVCacheAllocator>              kv_cache_allocator_;
-    std::unique_ptr<P2PConnectorPrefillWorker>     worker_;
+    std::unique_ptr<P2PConnectorServerWorker>      worker_;
     std::shared_ptr<ComputedLayerCacheBufferStore> computed_buffers_;
     std::shared_ptr<PrefillWorkerLoadContextStore> load_contexts_;
     std::shared_ptr<MockTransferClient>            mock_transfer_client_;
@@ -219,7 +219,7 @@ protected:
 
 // ---------------------------- writeByLayer ----------------------------
 
-TEST_F(P2PConnectorPrefillWorkerTest, WriteByLayer_ReturnTrue_WithNullEvent) {
+TEST_F(P2PConnectorServerWorkerTest, WriteByLayer_ReturnTrue_WithNullEvent) {
     int            layer_id   = 0;
     int64_t        request_id = 1001;
     auto           resource   = createKVCacheResource(layer_id, 2);
@@ -236,7 +236,7 @@ TEST_F(P2PConnectorPrefillWorkerTest, WriteByLayer_ReturnTrue_WithNullEvent) {
     ASSERT_TRUE(computed_buffer != nullptr);
 }
 
-TEST_F(P2PConnectorPrefillWorkerTest, WriteByLayer_ReturnTrue_WithReadyEvent) {
+TEST_F(P2PConnectorServerWorkerTest, WriteByLayer_ReturnTrue_WithReadyEvent) {
     int     layer_id   = 0;
     int64_t request_id = 1001;
     auto    resource   = createKVCacheResource(layer_id, 2);
@@ -256,7 +256,7 @@ TEST_F(P2PConnectorPrefillWorkerTest, WriteByLayer_ReturnTrue_WithReadyEvent) {
     ASSERT_TRUE(computed_buffers_->getBuffer(request_id) != nullptr);
 }
 
-TEST_F(P2PConnectorPrefillWorkerTest, StoreWaitThread_TimeoutExpired) {
+TEST_F(P2PConnectorServerWorkerTest, StoreWaitThread_TimeoutExpired) {
     int     layer_id   = 0;
     int64_t request_id = 1001;
     auto    resource   = createKVCacheResource(layer_id, 2);
@@ -280,7 +280,7 @@ TEST_F(P2PConnectorPrefillWorkerTest, StoreWaitThread_TimeoutExpired) {
 // ---------------------------- write ----------------------------
 
 // 测试：多层传输成功
-TEST_F(P2PConnectorPrefillWorkerTest, Write_ReturnTrue_AllLayersTransferSuccess) {
+TEST_F(P2PConnectorServerWorkerTest, Write_ReturnTrue_AllLayersTransferSuccess) {
     int64_t     request_id  = 1001;
     std::string unique_key  = "test_all_success";
     int64_t     deadline_ms = currentTimeMs() + 5000;
@@ -340,7 +340,7 @@ TEST_F(P2PConnectorPrefillWorkerTest, Write_ReturnTrue_AllLayersTransferSuccess)
 }
 
 // 测试：部分层传输失败
-TEST_F(P2PConnectorPrefillWorkerTest, Write_ReturnFalse_PartialLayersTransferFailed) {
+TEST_F(P2PConnectorServerWorkerTest, Write_ReturnFalse_PartialLayersTransferFailed) {
     int64_t     request_id  = 1002;
     std::string unique_key  = "test_partial_fail";
     int64_t     deadline_ms = currentTimeMs() + 5000;
@@ -386,7 +386,7 @@ TEST_F(P2PConnectorPrefillWorkerTest, Write_ReturnFalse_PartialLayersTransferFai
 }
 
 // 测试：部分层没有传输（没有 computed buffer）
-TEST_F(P2PConnectorPrefillWorkerTest, Write_ReturnFalse_SomeLayersNotTransferred) {
+TEST_F(P2PConnectorServerWorkerTest, Write_ReturnFalse_SomeLayersNotTransferred) {
     int64_t     request_id  = 1003;
     std::string unique_key  = "test_some_layers_missing";
     int64_t     deadline_ms = currentTimeMs() + 50;  // 50ms timeout
@@ -438,7 +438,7 @@ TEST_F(P2PConnectorPrefillWorkerTest, Write_ReturnFalse_SomeLayersNotTransferred
 }
 
 // 测试：多层传输成功
-TEST_F(P2PConnectorPrefillWorkerTest, Write_ReturnTrue_AsymmetricTP_AllLayersTransferSuccess) {
+TEST_F(P2PConnectorServerWorkerTest, Write_ReturnTrue_AsymmetricTP_AllLayersTransferSuccess) {
     int64_t     request_id  = 1001;
     std::string unique_key  = "test_all_success";
     int64_t     deadline_ms = currentTimeMs() + 5000;

@@ -50,7 +50,8 @@ public:
                                       const std::vector<std::pair<std::string, uint32_t>>&  decode_transfer_servers,
                                       const std::string&                                    unique_key,
                                       int64_t                                               deadline_ms,
-                                      int64_t                                               timeout_ms = 0);
+                                      int64_t                                               timeout_ms      = 0,
+                                      bool                                                  is_buffer_ready = false);
 
     void cancel(const std::shared_ptr<Result>& result, int64_t timeout_ms = 10 * 1000);
 

@@ -47,7 +47,7 @@ void ComputedLayerCacheBufferStore::checkTimeout() {
     int64_t                      current_time_ms = currentTimeMs();
     for (auto iter = computed_buffers_.begin(); iter != computed_buffers_.end();) {
         if (current_time_ms >= iter->second->deadline_ms) {
-            RTP_LLM_LOG_INFO("P2PConnectorPrefillWorker storeWaitThread erase computed_buffers_, request_id: %ld",
+            RTP_LLM_LOG_INFO("P2PConnectorServerWorker storeWaitThread erase computed_buffers_, request_id: %ld",
                              iter->first);
             iter = computed_buffers_.erase(iter);
         } else {

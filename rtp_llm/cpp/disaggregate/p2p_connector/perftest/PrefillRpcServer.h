@@ -1,7 +1,7 @@
 #pragma once
 
 #include "rtp_llm/cpp/disaggregate/p2p_connector/perftest/GrpcServer.h"
-#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorPrefill.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorServer.h"
 #include "rtp_llm/cpp/model_rpc/proto/model_rpc_service.grpc.pb.h"
 
 namespace rtp_llm {
@@ -20,16 +20,16 @@ public:
                            const P2PConnectorStartLoadRequestPB* request,
                            P2PConnectorStartLoadResponsePB*      response) override;
 
-    std::shared_ptr<P2PConnectorPrefill> getConnector() const {
+    std::shared_ptr<P2PConnectorServer> getConnector() const {
         return connector_;
     }
 
 private:
-    std::shared_ptr<P2PConnectorPrefill> connector_;
+    std::shared_ptr<P2PConnectorServer> connector_;
 };
 
 /// @brief Prefill-specific gRPC server
-/// Contains P2PConnectorPrefill which internally manages scheduler and worker
+/// Contains P2PConnectorServer which internally manages scheduler and worker
 class PrefillRpcServer: public GrpcServer {
 public:
     PrefillRpcServer(const GrpcServerConfig&             config,
@@ -37,8 +37,8 @@ public:
                      const kmonitor::MetricsReporterPtr& metrics_reporter);
     ~PrefillRpcServer() override;
 
-    /// @brief Get the P2PConnectorPrefill instance
-    std::shared_ptr<P2PConnectorPrefill> getConnector() const;
+    /// @brief Get the P2PConnectorServer instance
+    std::shared_ptr<P2PConnectorServer> getConnector() const;
 
 protected:
     std::shared_ptr<PerfTestRpcServiceBase> createRpcService() override;

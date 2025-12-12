@@ -5,7 +5,7 @@
 #include "rtp_llm/cpp/model_rpc/RemoteRpcServer.h"
 #include "rtp_llm/cpp/model_rpc/PrefillServerCaller.h"
 #include "rtp_llm/cpp/model_rpc/DecodeRpcServerNew2Context.h"
-#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorDecode.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorClient.h"
 #include "rtp_llm/cpp/model_rpc/proto/model_rpc_service.pb.h"
 
 namespace rtp_llm {
@@ -42,7 +42,7 @@ private:
                             grpc::ServerWriter<GenerateOutputsPB>*             response_writer);
 
 private:
-    std::shared_ptr<P2PConnectorDecode>  p2p_connector_decode_;
+    std::shared_ptr<P2PConnectorClient>  p2p_connector_client_;
     std::shared_ptr<PrefillServerCaller> prefill_server_caller_;
 };
 

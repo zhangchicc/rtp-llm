@@ -1,7 +1,7 @@
 #pragma once
 
 #include "rtp_llm/cpp/model_rpc/RemoteRpcServer.h"
-#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorPrefill.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorServer.h"
 
 namespace rtp_llm {
 
@@ -24,6 +24,6 @@ public:
                                    P2PConnectorStartLoadResponsePB*      response);
 
 private:
-    std::shared_ptr<P2PConnectorPrefill> p2p_connector_prefill_;
+    std::shared_ptr<P2PConnectorServer> p2p_connector_server_;
 };
 }  // namespace rtp_llm

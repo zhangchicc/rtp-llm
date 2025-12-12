@@ -12,11 +12,11 @@
 
 namespace rtp_llm {
 
-class P2PConnectorPrefillScheduler {
+class P2PConnectorServerScheduler {
 public:
-    P2PConnectorPrefillScheduler(const GptInitParameter&             gpt_init_parameter,
-                                 const kmonitor::MetricsReporterPtr& metrics_reporter);
-    ~P2PConnectorPrefillScheduler();
+    P2PConnectorServerScheduler(const GptInitParameter&             gpt_init_parameter,
+                                const kmonitor::MetricsReporterPtr& metrics_reporter);
+    ~P2PConnectorServerScheduler();
 
 public:
     bool init();
@@ -25,7 +25,8 @@ public:
                        const std::string&                                   unique_key,
                        int64_t                                              request_id,
                        const std::vector<std::pair<std::string, uint32_t>>& decode_transfer_servers,
-                       int64_t                                              deadline_ms);
+                       int64_t                                              deadline_ms,
+                       bool                                                 is_buffer_ready = false);
 
 private:
     const GptInitParameter&            gpt_init_parameter_;

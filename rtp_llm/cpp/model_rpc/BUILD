@@ -145,8 +145,8 @@ cc_library(
     ],
     deps = [
         ":remote_rpc_server",
-        "//rtp_llm/cpp/disaggregate/p2p_connector:prefill_connector",
-        "//rtp_llm/cpp/disaggregate/p2p_connector:decode_connector",
+        "//rtp_llm/cpp/disaggregate/p2p_connector:server_connector",
+        "//rtp_llm/cpp/disaggregate/p2p_connector:client_connector",
     ],
     visibility = ["//visibility:public"],
 )

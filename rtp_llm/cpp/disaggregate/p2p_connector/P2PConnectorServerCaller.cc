@@ -1,4 +1,4 @@
-#include "rtp_llm/cpp/disaggregate/p2p_connector/PrefillLoadClient.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorServerCaller.h"
 
 #include "rtp_llm/cpp/utils/Logger.h"
 #include "rtp_llm/cpp/utils/TimeUtil.h"
@@ -8,11 +8,11 @@
 
 namespace rtp_llm {
 
-PrefillLoadClient::PrefillLoadClient(const GptInitParameter& gpt_init_parameter):
+P2PConnectorServerCaller::P2PConnectorServerCaller(const GptInitParameter& gpt_init_parameter):
     gpt_init_parameter_(gpt_init_parameter) {
     rpc_pool_ = std::make_shared<RPCPool>();
     if (!rpc_pool_) {
-        RTP_LLM_LOG_ERROR("PrefillLoadClient init failed: rpc_pool is null");
+        RTP_LLM_LOG_ERROR("P2PConnectorServerCaller init failed: rpc_pool is null");
         return;
     }
 
@@ -20,7 +20,7 @@ PrefillLoadClient::PrefillLoadClient(const GptInitParameter& gpt_init_parameter)
     for (const auto& worker_addr : gpt_init_parameter_.worker_addrs_) {
         auto ip_parts = autil::StringUtil::split(worker_addr, ":");
         if (ip_parts.size() != 3) {
-            RTP_LLM_FAIL("PrefillLoadClient: invalid worker addr format [%s], expected ip:cache_store_port",
+            RTP_LLM_FAIL("P2PConnectorServerCaller: invalid worker addr format [%s], expected ip:cache_store_port",
                          worker_addr.c_str());
         L:
             continue;
@@ -32,19 +32,19 @@ PrefillLoadClient::PrefillLoadClient(const GptInitParameter& gpt_init_parameter)
     }
 }
 
-std::shared_ptr<PrefillLoadClient::Result> PrefillLoadClient::load(int64_t            request_id,
-                                                                   const std::string& prefill_ip,
-                                                                   uint32_t           prefill_port,
-                                                                   const std::string& unique_key,
-                                                                   int64_t            deadline_ms) {
+std::shared_ptr<P2PConnectorServerCaller::Result> P2PConnectorServerCaller::load(int64_t            request_id,
+                                                                                 const std::string& prefill_ip,
+                                                                                 uint32_t           prefill_port,
+                                                                                 const std::string& unique_key,
+                                                                                 int64_t            deadline_ms) {
     if (!rpc_pool_) {
-        RTP_LLM_LOG_WARNING("PrefillLoadClient load failed: rpc_pool is null");
+        RTP_LLM_LOG_WARNING("P2PConnectorServerCaller load failed: rpc_pool is null");
         return nullptr;
     }
 
     auto result = std::make_shared<Result>();
     if (!result) {
-        RTP_LLM_LOG_WARNING("PrefillLoadClient load failed: cannot create result");
+        RTP_LLM_LOG_WARNING("P2PConnectorServerCaller load failed: cannot create result");
         return nullptr;
     }
 
@@ -54,14 +54,15 @@ std::shared_ptr<PrefillLoadClient::Result> PrefillLoadClient::load(int64_t      
     // 获取连接
     auto conn_status = rpc_pool_->getConnection(result->server_addr);
     if (!conn_status.ok()) {
-        RTP_LLM_LOG_WARNING("PrefillLoadClient load failed: getConnection failed, addr: %s",
+        RTP_LLM_LOG_WARNING("P2PConnectorServerCaller load failed: getConnection failed, addr: %s",
                             result->server_addr.c_str());
         return nullptr;
     }
 
     result->stub = conn_status.value().stub;
     if (!result->stub) {
-        RTP_LLM_LOG_WARNING("PrefillLoadClient load failed: stub is null, addr: %s", result->server_addr.c_str());
+        RTP_LLM_LOG_WARNING("P2PConnectorServerCaller load failed: stub is null, addr: %s",
+                            result->server_addr.c_str());
         return nullptr;
     }
 
@@ -79,9 +80,9 @@ std::shared_ptr<PrefillLoadClient::Result> PrefillLoadClient::load(int64_t      
         tp_worker_info->set_cache_store_port(tp_worker.cache_store_port());
     }
 
-    RTP_LLM_LOG_INFO("PrefillLoadClient load: request workers: %zu", result->request.workers_size());
+    RTP_LLM_LOG_INFO("P2PConnectorServerCaller load: request workers: %zu", result->request.workers_size());
     for (const auto& worker : result->request.workers()) {
-        RTP_LLM_LOG_INFO("PrefillLoadClient load: request worker ip: %s, cache_store_port: %d",
+        RTP_LLM_LOG_INFO("P2PConnectorServerCaller load: request worker ip: %s, cache_store_port: %d",
                          worker.ip().c_str(),
                          worker.cache_store_port());
     }
@@ -92,7 +93,7 @@ std::shared_ptr<PrefillLoadClient::Result> PrefillLoadClient::load(int64_t      
 
     // 设置超时时间
     result->timeout_ms_ = deadline_ms > 0 ? (static_cast<int>(deadline_ms) - currentTimeMs()) : 30000;
-    RTP_LLM_LOG_INFO("PrefillLoadClient load: request deadline_ms: %lld, current time ms: %lld, timeout ms: %d",
+    RTP_LLM_LOG_INFO("P2PConnectorServerCaller load: request deadline_ms: %lld, current time ms: %lld, timeout ms: %d",
                      deadline_ms,
                      currentTimeMs(),
                      result->timeout_ms_);
@@ -103,7 +104,7 @@ std::shared_ptr<PrefillLoadClient::Result> PrefillLoadClient::load(int64_t      
     result->reader_ = result->stub->PrepareAsyncStartLoad(
         result->client_context.get(), result->request, result->completion_queue_.get());
     if (!result->reader_) {
-        RTP_LLM_LOG_WARNING("PrefillLoadClient load failed: PrepareAsyncStartLoad failed, addr: %s",
+        RTP_LLM_LOG_WARNING("P2PConnectorServerCaller load failed: PrepareAsyncStartLoad failed, addr: %s",
                             result->server_addr.c_str());
         return nullptr;
     }
@@ -112,14 +113,15 @@ std::shared_ptr<PrefillLoadClient::Result> PrefillLoadClient::load(int64_t      
     result->reader_->Finish(
         &result->response, &result->status, reinterpret_cast<void*>(static_cast<intptr_t>(request_id)));
 
-    RTP_LLM_LOG_INFO(
-        "PrefillLoadClient load started, unique_key: %s, addr: %s", unique_key.c_str(), result->server_addr.c_str());
+    RTP_LLM_LOG_INFO("P2PConnectorServerCaller load started, unique_key: %s, addr: %s",
+                     unique_key.c_str(),
+                     result->server_addr.c_str());
     return result;
 }
 
-void PrefillLoadClient::Result::checkDone() {
+void P2PConnectorServerCaller::Result::checkDone() {
     if (!completion_queue_) {
-        RTP_LLM_LOG_WARNING("PrefillLoadClient::Result::waitDone: completion_queue is null");
+        RTP_LLM_LOG_WARNING("P2PConnectorServerCaller::Result::waitDone: completion_queue is null");
         success_ = false;
         done_    = true;
         return;
@@ -142,14 +144,14 @@ void PrefillLoadClient::Result::checkDone() {
     total_cost_time_us_ = currentTimeUs() - start_time_us_;
 
     if (!ok) {
-        RTP_LLM_LOG_WARNING("PrefillLoadClient::Result::waitDone: async next failed, server_addr: %s",
+        RTP_LLM_LOG_WARNING("P2PConnectorServerCaller::Result::waitDone: async next failed, server_addr: %s",
                             server_addr.c_str());
         return;
     }
 
     // 检查 RPC 状态
     if (!status.ok()) {
-        RTP_LLM_LOG_WARNING("PrefillLoadClient::Result::waitDone: rpc error: %s, server_addr: %s",
+        RTP_LLM_LOG_WARNING("P2PConnectorServerCaller::Result::waitDone: rpc error: %s, server_addr: %s",
                             status.error_message().c_str(),
                             server_addr.c_str());
         return;
@@ -157,13 +159,13 @@ void PrefillLoadClient::Result::checkDone() {
 
     // 检查响应是否成功
     if (!response.success()) {
-        RTP_LLM_LOG_WARNING("PrefillLoadClient::Result::waitDone: response success is false, server_addr: %s",
+        RTP_LLM_LOG_WARNING("P2PConnectorServerCaller::Result::waitDone: response success is false, server_addr: %s",
                             server_addr.c_str());
         return;
     }
 
     success_ = true;
-    RTP_LLM_LOG_DEBUG("PrefillLoadClient::Result::waitDone: success, server_addr: %s", server_addr.c_str());
+    RTP_LLM_LOG_DEBUG("P2PConnectorServerCaller::Result::waitDone: success, server_addr: %s", server_addr.c_str());
     return;
 }
 

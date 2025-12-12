@@ -8,7 +8,7 @@
 #include <chrono>
 
 #include "rtp_llm/cpp/disaggregate/p2p_connector/perftest/DecodeRpcServer.h"
-#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorDecode.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorClient.h"
 #include "rtp_llm/cpp/cache_new/BatchKVCacheResource.h"
 
 namespace rtp_llm {
@@ -116,7 +116,7 @@ public:
     }
 
     /// @brief Get all decode connectors
-    std::vector<std::shared_ptr<P2PConnectorDecode>> getConnectors() const;
+    std::vector<std::shared_ptr<P2PConnectorClient>> getConnectors() const;
 
     /// @brief Get decode server addresses
     std::vector<std::pair<std::string, uint32_t>> getDecodeTransferServerAddrs() const;
@@ -137,8 +137,8 @@ private:
     /// @brief Create a KVCacheResourceV1 with specified blocks
     std::shared_ptr<KVCacheResourceV1> createTestResource() const;
 
-    /// @brief Create P2PConnectorDecodeMeta for a request
-    std::shared_ptr<P2PConnectorDecodeMeta> createTestMeta(int64_t request_id) const;
+    /// @brief Create P2PConnectorClientMeta for a request
+    std::shared_ptr<P2PConnectorClientMeta> createTestMeta(int64_t request_id) const;
 
     /// @brief Send async read requests at specified QPS
     void runLoadGenerator(std::atomic<bool>& running);

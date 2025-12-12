@@ -42,12 +42,12 @@ cc_library(
 )
 
 cc_library(
-    name = "prefill_load_client",
+    name = "server_caller",
     srcs = [
-        "PrefillLoadClient.cc",
+        "P2PConnectorServerCaller.cc",
     ],
     hdrs = [
-        "PrefillLoadClient.h",
+        "P2PConnectorServerCaller.h",
     ],
     deps = [
         "//rtp_llm/cpp/config:gpt_init_params",
@@ -57,21 +57,21 @@ cc_library(
 )
 
 cc_library(
-    name = "decode_connector",
+    name = "client_connector",
     srcs = [
-        "P2PConnectorDecode.cc",
-        "P2PConnectorDecodeWorker.cc",
-        "P2PConnectorDecodeScheduler.cc",
+        "P2PConnectorClient.cc",
+        "P2PConnectorClientWorker.cc",
+        "P2PConnectorClientScheduler.cc",
     ],
     hdrs = [
-        "P2PConnectorDecode.h",
-        "P2PConnectorDecodeWorker.h",
-        "P2PConnectorDecodeScheduler.h",
+        "P2PConnectorClient.h",
+        "P2PConnectorClientWorker.h",
+        "P2PConnectorClientScheduler.h",
     ],
     deps = [
         ":layer_block_convert",
         ":tp_broadcast",
-        ":prefill_load_client",
+        ":server_caller",
         ":p2p_connector_metrics",
         "//rtp_llm/cpp/cache_new:connector_interface",
         "//rtp_llm/cpp/cache_new:cache_new",
@@ -140,16 +140,16 @@ cc_library(
 )
 
 cc_library(
-    name = "prefill_connector",
+    name = "server_connector",
     srcs = [
-        "P2PConnectorPrefillWorker.cc",
-        "P2PConnectorPrefillScheduler.cc",
-        "P2PConnectorPrefill.cc",
+        "P2PConnectorServerWorker.cc",
+        "P2PConnectorServerScheduler.cc",
+        "P2PConnectorServer.cc",
     ],
     hdrs = [
-        "P2PConnectorPrefillWorker.h",
-        "P2PConnectorPrefillScheduler.h",
-        "P2PConnectorPrefill.h",
+        "P2PConnectorServerWorker.h",
+        "P2PConnectorServerScheduler.h",
+        "P2PConnectorServer.h",
     ],
     deps = [
         ":asymmetric_tp",

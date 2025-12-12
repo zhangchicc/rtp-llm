@@ -36,14 +36,14 @@ cc_test(
 )
 
 cc_test(
-    name = "prefill_load_test",
+    name = "p2p_connector_server_caller_test",
     srcs = [
-        "PrefillLoadClientTest.cc",
+        "P2PConnectorServerCallerTest.cc",
         "main.cc",
     ],
     deps = [
         ":test_rpc_server",
-        "//rtp_llm/cpp/disaggregate/p2p_connector:prefill_load_client",
+        "//rtp_llm/cpp/disaggregate/p2p_connector:server_caller",
         "@com_google_googletest//:gtest",
         "//rtp_llm/cpp/devices/testing:device_test_utils",
     ] + device_impl_target(),
@@ -51,13 +51,13 @@ cc_test(
 )
 
 cc_test(
-    name = "p2p_connector_decode_worker_test",
+    name = "p2p_connector_client_worker_test",
     srcs = [
-        "P2PConnectorDecodeWorkerTest.cc",
+        "P2PConnectorClientWorkerTest.cc",
         "main.cc",
     ],
     deps = [
-        "//rtp_llm/cpp/disaggregate/p2p_connector:decode_connector",
+        "//rtp_llm/cpp/disaggregate/p2p_connector:client_connector",
         "//rtp_llm/cpp/disaggregate/transfer:basic_types",
         "@com_google_googletest//:gtest",
         "//rtp_llm/cpp/devices/testing:device_test_utils",
@@ -66,14 +66,14 @@ cc_test(
 )
 
 cc_test(
-    name = "p2p_connector_decode_scheduler_test",
+    name = "p2p_connector_client_scheduler_test",
     srcs = [
-        "P2PConnectorDecodeSchedulerTest.cc",
+        "P2PConnectorClientSchedulerTest.cc",
         "main.cc",
     ],
     deps = [
         ":test_rpc_server",
-        "//rtp_llm/cpp/disaggregate/p2p_connector:decode_connector",
+        "//rtp_llm/cpp/disaggregate/p2p_connector:client_connector",
         "//rtp_llm/cpp/cache_new:cache_new",
         "@com_google_googletest//:gtest",
         "//rtp_llm/cpp/devices/testing:device_test_utils",
@@ -82,13 +82,13 @@ cc_test(
 )
 
 cc_test(
-    name = "p2p_connector_prefill_worker_test",
+    name = "p2p_connector_server_worker_test",
     srcs = [
-        "P2PConnectorPrefillWorkerTest.cc",
+        "P2PConnectorServerWorkerTest.cc",
         "main.cc",
     ],
     deps = [
-        "//rtp_llm/cpp/disaggregate/p2p_connector:prefill_connector",
+        "//rtp_llm/cpp/disaggregate/p2p_connector:server_connector",
         "//rtp_llm/cpp/cache_new:cache_new",
         "@com_google_googletest//:gtest",
         "//rtp_llm/cpp/devices/testing:device_test_utils",
@@ -97,14 +97,14 @@ cc_test(
 )
 
 cc_test(
-    name = "p2p_connector_prefill_scheduler_test",
+    name = "p2p_connector_server_scheduler_test",
     srcs = [
-        "P2PConnectorPrefillSchedulerTest.cc",
+        "P2PConnectorServerSchedulerTest.cc",
         "main.cc",
     ],
     deps = [
         ":test_rpc_server",
-        "//rtp_llm/cpp/disaggregate/p2p_connector:prefill_connector",
+        "//rtp_llm/cpp/disaggregate/p2p_connector:server_connector",
         "//rtp_llm/cpp/cache_new:cache_new",
         "@com_google_googletest//:gtest",
         "//rtp_llm/cpp/devices/testing:device_test_utils",

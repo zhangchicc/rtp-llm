@@ -50,7 +50,7 @@ cc_library(
     copts = perftest_copts,
     deps = [
         ":grpc_server",
-        "//rtp_llm/cpp/disaggregate/p2p_connector:prefill_connector",
+        "//rtp_llm/cpp/disaggregate/p2p_connector:server_connector",
     ],
 )
 
@@ -65,7 +65,7 @@ cc_library(
     copts = perftest_copts,
     deps = [
         ":grpc_server",
-        "//rtp_llm/cpp/disaggregate/p2p_connector:decode_connector",
+        "//rtp_llm/cpp/disaggregate/p2p_connector:client_connector",
     ],
 )
 
@@ -81,7 +81,7 @@ cc_library(
     deps = [
         ":prefill_rpc_server",
         "//rtp_llm/cpp/cache_new:batch_kv_cache_resource",
-        "//rtp_llm/cpp/disaggregate/p2p_connector:prefill_connector",
+        "//rtp_llm/cpp/disaggregate/p2p_connector:server_connector",
         "//rtp_llm/cpp/normal_engine:normal_engine",
     ],
 )
@@ -110,7 +110,7 @@ cc_library(
     deps = [
         ":decode_rpc_server",
         "//rtp_llm/cpp/cache_new:batch_kv_cache_resource",
-        "//rtp_llm/cpp/disaggregate/p2p_connector:decode_connector",
+        "//rtp_llm/cpp/disaggregate/p2p_connector:client_connector",
     ],
 )
 

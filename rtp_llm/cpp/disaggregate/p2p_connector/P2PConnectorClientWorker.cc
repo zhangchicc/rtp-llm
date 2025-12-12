@@ -1,4 +1,4 @@
-#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorDecodeWorker.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorClientWorker.h"
 
 #include "rtp_llm/cpp/utils/Logger.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/LayerBlockConvertorImpl.h"
@@ -7,18 +7,18 @@
 
 namespace rtp_llm {
 
-P2PConnectorDecodeWorker::P2PConnectorDecodeWorker(const GptInitParameter&                  gpt_init_parameter,
+P2PConnectorClientWorker::P2PConnectorClientWorker(const GptInitParameter&                  gpt_init_parameter,
                                                    const std::shared_ptr<KVCacheAllocator>& kv_cache_allocator,
                                                    const kmonitor::MetricsReporterPtr&      metrics_reporter):
     gpt_init_parameter_(gpt_init_parameter),
     kv_cache_allocator_(kv_cache_allocator),
     metrics_reporter_(metrics_reporter) {}
 
-P2PConnectorDecodeWorker::~P2PConnectorDecodeWorker() = default;
+P2PConnectorClientWorker::~P2PConnectorClientWorker() = default;
 
-bool P2PConnectorDecodeWorker::init() {
+bool P2PConnectorClientWorker::init() {
     if (!kv_cache_allocator_) {
-        RTP_LLM_LOG_ERROR("P2PConnectorDecodeWorker init failed: kv_cache_allocator is null");
+        RTP_LLM_LOG_ERROR("P2PConnectorClientWorker init failed: kv_cache_allocator is null");
         return false;
     }
 
@@ -28,7 +28,7 @@ bool P2PConnectorDecodeWorker::init() {
     // init transfer server
     transfer_server_ = std::make_shared<TransferServer>(layer_block_convertor, metrics_reporter_);
     if (!transfer_server_) {
-        RTP_LLM_LOG_ERROR("P2PConnectorDecodeWorker init failed: transfer_server is null");
+        RTP_LLM_LOG_ERROR("P2PConnectorClientWorker init failed: transfer_server is null");
         return false;
     }
 
@@ -40,14 +40,14 @@ bool P2PConnectorDecodeWorker::init() {
                                 gpt_init_parameter_.cache_store_config.messager_worker_thread_count,
                                 2,  // TODO: gpt_init_parameter_.cache_store_config.rdma_connections_per_host,
                                 gpt_init_parameter_.cache_store_config.rdma_connect_timeout_ms)) {
-        RTP_LLM_LOG_ERROR("P2PConnectorDecodeWorker init failed: transfer_server init failed");
+        RTP_LLM_LOG_ERROR("P2PConnectorClientWorker init failed: transfer_server init failed");
         return false;
     }
 
     // init layer cache buffer task store
     layer_cache_buffer_task_store_ = transfer_server_->getLayerCacheBufferTaskStore();
     if (!layer_cache_buffer_task_store_) {
-        RTP_LLM_LOG_ERROR("P2PConnectorDecodeWorker init failed: get layer_cache_buffer_task_store failed");
+        RTP_LLM_LOG_ERROR("P2PConnectorClientWorker init failed: get layer_cache_buffer_task_store failed");
         return false;
     }
 
@@ -55,22 +55,22 @@ bool P2PConnectorDecodeWorker::init() {
     auto buffers = kv_cache_allocator_->getAllBuffers();
     for (auto& [buffer, size] : buffers) {
         if (!transfer_server_->registerUserMr(buffer, size)) {
-            RTP_LLM_LOG_ERROR("P2PConnectorDecodeWorker init failed: register user mr failed, buffer: %p, size: %ld",
+            RTP_LLM_LOG_ERROR("P2PConnectorClientWorker init failed: register user mr failed, buffer: %p, size: %ld",
                               buffer->data(),
                               size);
             return false;
         }
     }
-    RTP_LLM_LOG_INFO("P2PConnectorDecodeWorker init success");
+    RTP_LLM_LOG_INFO("P2PConnectorClientWorker init success");
     return true;
 }
 
-bool P2PConnectorDecodeWorker::read(int64_t                                               request_id,
+bool P2PConnectorClientWorker::read(int64_t                                               request_id,
                                     const std::string&                                    unique_key,
                                     int64_t                                               deadline_ms,
                                     const std::vector<std::shared_ptr<LayerCacheBuffer>>& layer_cache_buffers) {
     if (!layer_cache_buffer_task_store_) {
-        RTP_LLM_LOG_ERROR("P2PConnectorDecodeWorker read failed: layer_cache_buffer_task_store is null");
+        RTP_LLM_LOG_ERROR("P2PConnectorClientWorker read failed: layer_cache_buffer_task_store is null");
         return false;
     }
 
@@ -90,7 +90,7 @@ bool P2PConnectorDecodeWorker::read(int64_t                                     
     auto layer_cache_buffer_task =
         layer_cache_buffer_task_store_->addTask(unique_key, layer_cache_buffer_map, deadline_ms);
     if (!layer_cache_buffer_task) {
-        RTP_LLM_LOG_WARNING("P2PConnectorDecodeWorker read failed: layer_cache_buffer_task is null");
+        RTP_LLM_LOG_WARNING("P2PConnectorClientWorker read failed: layer_cache_buffer_task is null");
         return false;
     }
 
@@ -118,18 +118,18 @@ bool P2PConnectorDecodeWorker::read(int64_t                                     
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     if (metrics_reporter_) {
-        auto collector                      = std::make_shared<P2PConnectorDecodeWorkerMetricsCollector>();
+        auto collector                      = std::make_shared<P2PConnectorClientWorkerMetricsCollector>();
         collector->total_block_count        = layer_cache_buffer_task->totalBlockCount();
         collector->success                  = layer_cache_buffer_task->success();
         collector->total_cost_time_us       = layer_cache_buffer_task->totalCostTimeUs();
         collector->first_layer_wait_time_us = layer_cache_buffer_task->firstLayerWaitTimeUs();
-        metrics_reporter_->report<P2PConnectorMetrics, P2PConnectorDecodeWorkerMetricsCollector>(nullptr,
+        metrics_reporter_->report<P2PConnectorMetrics, P2PConnectorClientWorkerMetricsCollector>(nullptr,
                                                                                                  collector.get());
     }
     return layer_cache_buffer_task->success();
 }
 
-void P2PConnectorDecodeWorker::cancelRead(int64_t request_id, const std::string& unique_key) {
+void P2PConnectorClientWorker::cancelRead(int64_t request_id, const std::string& unique_key) {
     if (!layer_cache_buffer_task_store_) {
         return;
     }
@@ -141,20 +141,20 @@ void P2PConnectorDecodeWorker::cancelRead(int64_t request_id, const std::string&
     layer_cache_buffer_task->setCancelled();
 }
 
-void P2PConnectorDecodeWorker::setLayerCacheBufferTaskStore(
+void P2PConnectorClientWorker::setLayerCacheBufferTaskStore(
     const std::shared_ptr<LayerCacheBufferTaskStore>& layer_cache_buffer_task_store) {
     layer_cache_buffer_task_store_ = layer_cache_buffer_task_store;
 }
 
-P2PConnectorDecodeWorkerTPCallback::P2PConnectorDecodeWorkerTPCallback(
-    const std::shared_ptr<P2PConnectorDecodeWorker>& p2p_connector_decode_worker):
+P2PConnectorClientWorkerTPCallback::P2PConnectorClientWorkerTPCallback(
+    const std::shared_ptr<P2PConnectorClientWorker>& p2p_connector_decode_worker):
     p2p_connector_decode_worker_(p2p_connector_decode_worker) {}
 
-bool P2PConnectorDecodeWorkerTPCallback::shouldProcess(const BroadcastTpRequestPB& request) {
+bool P2PConnectorClientWorkerTPCallback::shouldProcess(const BroadcastTpRequestPB& request) {
     return request.has_p2p_request();
 }
 
-grpc::Status P2PConnectorDecodeWorkerTPCallback::onBroadcastTp(const BroadcastTpRequestPB& request,
+grpc::Status P2PConnectorClientWorkerTPCallback::onBroadcastTp(const BroadcastTpRequestPB& request,
                                                                BroadcastTpResponsePB&      response) {
     auto p2p_request = request.p2p_request();
     auto unique_key  = p2p_request.unique_key();
@@ -169,7 +169,7 @@ grpc::Status P2PConnectorDecodeWorkerTPCallback::onBroadcastTp(const BroadcastTp
         auto cache_keys         = layer_block_pb.cache_keys();
         auto block_ids          = layer_block_pb.block_ids();
         if (cache_keys.size() != block_ids.size()) {
-            RTP_LLM_LOG_WARNING("P2PConnectorDecodeTPCallback::onBroadcastTp: cache_keys and block_ids size mismatch");
+            RTP_LLM_LOG_WARNING("P2PConnectorClientTPCallback::onBroadcastTp: cache_keys and block_ids size mismatch");
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "cache_keys and block_ids size mismatch");
         }
         for (size_t i = 0; i < cache_keys.size(); i++) {

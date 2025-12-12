@@ -13,10 +13,10 @@
 
 namespace rtp_llm {
 
-class PrefillLoadClient {
+class P2PConnectorServerCaller {
 public:
-    PrefillLoadClient(const GptInitParameter& gpt_init_parameter);
-    ~PrefillLoadClient() = default;
+    P2PConnectorServerCaller(const GptInitParameter& gpt_init_parameter);
+    ~P2PConnectorServerCaller() = default;
 
 public:
     struct Result {

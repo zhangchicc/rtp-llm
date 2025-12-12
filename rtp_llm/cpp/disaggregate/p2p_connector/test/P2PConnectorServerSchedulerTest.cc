@@ -3,7 +3,7 @@
 #include "grpc++/grpc++.h"
 
 #include "autil/NetUtil.h"
-#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorPrefillScheduler.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorServerScheduler.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/test/TestRpcServer.h"
 #include "rtp_llm/cpp/cache_new/BatchKVCacheResource.h"
 #include "rtp_llm/cpp/engine_base/stream/GenerateStream.h"
@@ -12,7 +12,7 @@
 
 namespace rtp_llm {
 
-class P2PConnectorPrefillSchedulerTest: public ::testing::Test {
+class P2PConnectorServerSchedulerTest: public ::testing::Test {
 protected:
     void SetUp() override {
         // 创建测试用的 RPC 服务器（用于 TPBroadcastClient）
@@ -27,8 +27,8 @@ protected:
         // 创建 GptInitParameter
         gpt_init_parameter_.worker_grpc_addrs_ = server_addrs_;
 
-        // 创建 P2PConnectorPrefillScheduler
-        scheduler_ = std::make_unique<P2PConnectorPrefillScheduler>(gpt_init_parameter_);
+        // 创建 P2PConnectorServerScheduler
+        scheduler_ = std::make_unique<P2PConnectorServerScheduler>(gpt_init_parameter_);
         ASSERT_TRUE(scheduler_->init());
     }
 
@@ -66,16 +66,16 @@ protected:
     }
 
 protected:
-    std::vector<std::unique_ptr<TestRpcServer>>   servers_;
-    std::vector<std::string>                      server_addrs_;
-    GptInitParameter                              gpt_init_parameter_;
-    std::unique_ptr<P2PConnectorPrefillScheduler> scheduler_;
+    std::vector<std::unique_ptr<TestRpcServer>>  servers_;
+    std::vector<std::string>                     server_addrs_;
+    GptInitParameter                             gpt_init_parameter_;
+    std::unique_ptr<P2PConnectorServerScheduler> scheduler_;
 };
 
 // ---------------------------- write ----------------------------
 
 // 测试：resource 转换不到 layer_cache_buffers
-TEST_F(P2PConnectorPrefillSchedulerTest, Write_ReturnError_LayerCacheBuffersEmpty) {
+TEST_F(P2PConnectorServerSchedulerTest, Write_ReturnError_LayerCacheBuffersEmpty) {
     // 创建无效的 KVCacheResourceV1（无法转换为 layer_cache_buffers）
     auto invalid_resource = createInvalidKVCacheResource();
 
@@ -97,7 +97,7 @@ TEST_F(P2PConnectorPrefillSchedulerTest, Write_ReturnError_LayerCacheBuffersEmpt
 }
 
 // 测试：broadcast 成功
-TEST_F(P2PConnectorPrefillSchedulerTest, Write_ReturnOK_BroadcastSuccess) {
+TEST_F(P2PConnectorServerSchedulerTest, Write_ReturnOK_BroadcastSuccess) {
     // 创建有效的 KVCacheResourceV1
     auto valid_resource = createValidKVCacheResource(2, 2);
 
@@ -119,7 +119,7 @@ TEST_F(P2PConnectorPrefillSchedulerTest, Write_ReturnOK_BroadcastSuccess) {
 }
 
 // 测试：broadcast 失败（部分响应失败）
-TEST_F(P2PConnectorPrefillSchedulerTest, Write_ReturnError_BroadcastPartialFailed) {
+TEST_F(P2PConnectorServerSchedulerTest, Write_ReturnError_BroadcastPartialFailed) {
     // 设置第一个服务器返回失败
     servers_[0]->service()->setP2PResponseSuccess(false);
 
@@ -146,7 +146,7 @@ TEST_F(P2PConnectorPrefillSchedulerTest, Write_ReturnError_BroadcastPartialFaile
 }
 
 // 测试：broadcast 失败（所有响应失败）
-TEST_F(P2PConnectorPrefillSchedulerTest, Write_ReturnError_BroadcastAllFailed) {
+TEST_F(P2PConnectorServerSchedulerTest, Write_ReturnError_BroadcastAllFailed) {
     // 设置所有服务器返回失败
     for (auto& server : servers_) {
         server->service()->setP2PResponseSuccess(false);
@@ -174,7 +174,7 @@ TEST_F(P2PConnectorPrefillSchedulerTest, Write_ReturnError_BroadcastAllFailed) {
 }
 
 // 测试：broadcast 失败（broadcast 返回 nullptr）
-TEST_F(P2PConnectorPrefillSchedulerTest, Write_ReturnError_BroadcastReturnNull) {
+TEST_F(P2PConnectorServerSchedulerTest, Write_ReturnError_BroadcastReturnNull) {
     // 设置 RPC 响应状态为错误，导致 broadcast 可能返回 nullptr 或失败
     // 注意：根据 TPBroadcastClient 的实现，如果 broadcast 返回 nullptr，write 应该返回错误
     // 但实际测试中，broadcast 可能不会返回 nullptr，而是返回一个失败的 result

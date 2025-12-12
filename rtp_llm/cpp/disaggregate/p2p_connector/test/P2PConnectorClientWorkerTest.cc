@@ -4,7 +4,7 @@
 #include <vector>
 #include <map>
 
-#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorDecodeWorker.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorClientWorker.h"
 #include "rtp_llm/cpp/disaggregate/transfer/LayerCacheBuffer.h"
 #include "rtp_llm/cpp/utils/TimeUtil.h"
 #include "rtp_llm/cpp/cache_new/KVCacheAllocator.h"
@@ -12,7 +12,7 @@
 
 namespace rtp_llm {
 
-class P2PConnectorDecodeWorkerTest: public ::testing::Test {
+class P2PConnectorClientWorkerTest: public ::testing::Test {
 protected:
     void SetUp() override {
         // 创建测试用的 GptInitParameter
@@ -25,8 +25,8 @@ protected:
         // 创建测试用的 KVCacheAllocator (使用 nullptr，因为测试不依赖实际分配器)
         kv_cache_allocator_ = nullptr;
 
-        // 创建 P2PConnectorDecodeWorker（不调用 init，避免创建 TransferServer）
-        worker_ = std::make_unique<P2PConnectorDecodeWorker>(gpt_init_parameter_, device_base_, kv_cache_allocator_);
+        // 创建 P2PConnectorClientWorker（不调用 init，避免创建 TransferServer）
+        worker_ = std::make_unique<P2PConnectorClientWorker>(gpt_init_parameter_, device_base_, kv_cache_allocator_);
 
         // 直接设置 LayerCacheBufferTaskStore（友元类可以访问私有成员）
         task_store_ = std::make_shared<LayerCacheBufferTaskStore>();
@@ -67,13 +67,13 @@ protected:
     GptInitParameter                           gpt_init_parameter_;
     DeviceBase*                                device_base_;
     std::shared_ptr<KVCacheAllocator>          kv_cache_allocator_;
-    std::unique_ptr<P2PConnectorDecodeWorker>  worker_;
+    std::unique_ptr<P2PConnectorClientWorker>  worker_;
     std::shared_ptr<LayerCacheBufferTaskStore> task_store_;
 };
 
 // ---------------------------- read ----------------------------
 
-TEST_F(P2PConnectorDecodeWorkerTest, Read_ReturnTrue_AllLayersSuccess) {
+TEST_F(P2PConnectorClientWorkerTest, Read_ReturnTrue_AllLayersSuccess) {
     std::string unique_key  = "test_read_success";
     int64_t     request_id  = 1001;
     int64_t     deadline_ms = currentTimeMs() + 5000;
@@ -100,7 +100,7 @@ TEST_F(P2PConnectorDecodeWorkerTest, Read_ReturnTrue_AllLayersSuccess) {
     EXPECT_EQ(task_store_->getTask(unique_key), nullptr);
 }
 
-TEST_F(P2PConnectorDecodeWorkerTest, Read_ReturnFalse_PartialLayersFailed) {
+TEST_F(P2PConnectorClientWorkerTest, Read_ReturnFalse_PartialLayersFailed) {
     std::string unique_key  = "test_read_partial_fail";
     int64_t     request_id  = 1002;
     int64_t     deadline_ms = currentTimeMs() + 5000;
@@ -127,7 +127,7 @@ TEST_F(P2PConnectorDecodeWorkerTest, Read_ReturnFalse_PartialLayersFailed) {
     EXPECT_EQ(task_store_->getTask(unique_key), nullptr);
 }
 
-TEST_F(P2PConnectorDecodeWorkerTest, Read_ReturnFalse_Timeout) {
+TEST_F(P2PConnectorClientWorkerTest, Read_ReturnFalse_Timeout) {
     std::string unique_key  = "test_read_timeout";
     int64_t     request_id  = 1003;
     int64_t     deadline_ms = currentTimeMs() + 10;  // 很短的超时时间
@@ -154,7 +154,7 @@ TEST_F(P2PConnectorDecodeWorkerTest, Read_ReturnFalse_Timeout) {
     EXPECT_EQ(task_store_->getTask(unique_key), nullptr);
 }
 
-TEST_F(P2PConnectorDecodeWorkerTest, Read_ReturnTrue_EmptyBuffers) {
+TEST_F(P2PConnectorClientWorkerTest, Read_ReturnTrue_EmptyBuffers) {
     std::string unique_key  = "test_read_empty";
     int64_t     request_id  = 1004;
     int64_t     deadline_ms = currentTimeMs() + 5000;
@@ -169,7 +169,7 @@ TEST_F(P2PConnectorDecodeWorkerTest, Read_ReturnTrue_EmptyBuffers) {
     EXPECT_TRUE(success);
 }
 
-TEST_F(P2PConnectorDecodeWorkerTest, Read_ReturnFalse_PartialBuffers) {
+TEST_F(P2PConnectorClientWorkerTest, Read_ReturnFalse_PartialBuffers) {
     std::string unique_key  = "test_read_null";
     int64_t     request_id  = 1005;
     int64_t     deadline_ms = currentTimeMs() + 5000;
@@ -196,7 +196,7 @@ TEST_F(P2PConnectorDecodeWorkerTest, Read_ReturnFalse_PartialBuffers) {
 
 // ---------------------------- cancelRead ----------------------------
 
-TEST_F(P2PConnectorDecodeWorkerTest, CancelRead_ReturnSuccess_TaskExists) {
+TEST_F(P2PConnectorClientWorkerTest, CancelRead_ReturnSuccess_TaskExists) {
     std::string unique_key  = "test_cancel_success";
     int64_t     request_id  = 1006;
     int64_t     deadline_ms = currentTimeMs() + 5000;
@@ -233,7 +233,7 @@ TEST_F(P2PConnectorDecodeWorkerTest, CancelRead_ReturnSuccess_TaskExists) {
     loading_thread.join();
 }
 
-TEST_F(P2PConnectorDecodeWorkerTest, CancelRead_ReturnSuccess_TaskNotExists) {
+TEST_F(P2PConnectorClientWorkerTest, CancelRead_ReturnSuccess_TaskNotExists) {
     std::string unique_key = "test_cancel_not_exist";
     int64_t     request_id = 1007;
 

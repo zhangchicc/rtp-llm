@@ -19,17 +19,17 @@ grpc::Status DecodeRpcServerNew2::init(const EngineInitParams&                  
 
     prefill_server_caller_ = std::make_shared<PrefillServerCaller>(
         process_id_, maga_init_params.gpt_init_parameter.decode_polling_call_prefill_ms_, engine_->isMTPEagle());
-    p2p_connector_decode_ =
-        std::make_shared<P2PConnectorDecode>(maga_init_params.gpt_init_parameter,
+    p2p_connector_client_ =
+        std::make_shared<P2PConnectorClient>(maga_init_params.gpt_init_parameter,
                                              engine_->getDevice(),
                                              engine_->resourceContext().cache_manager->getAllocator());
-    if (!p2p_connector_decode_->init()) {
+    if (!p2p_connector_client_->init()) {
         RTP_LLM_LOG_ERROR("decode rpc server new2 init failed, p2p_connector_decode is null");
         // return grpc::Status::OK;
         return grpc::Status(grpc::StatusCode::INTERNAL, "p2p_connector_decode init failed");
     }
 
-    auto callback = p2p_connector_decode_->makeCallback();
+    auto callback = p2p_connector_client_->makeCallback();
     if (!callback) {
         RTP_LLM_LOG_ERROR("decode rpc server new2 init failed, make callback failed");
         return grpc::Status(grpc::StatusCode::INTERNAL, "make callback failed");
@@ -112,9 +112,9 @@ bool DecodeRpcServerNew2::loadKVCacheFromPrefill(const std::shared_ptr<GenerateS
     auto& stream_resource     = const_cast<BatchKVCacheResource&>(stream->kvCache()).resource(0);
     auto  stream_resource_ptr = std::make_shared<KVCacheResourceV1>(stream_resource);
 
-    auto p2p_meta = std::make_shared<P2PConnectorDecodeMeta>(
+    auto p2p_meta = std::make_shared<P2PConnectorClientMeta>(
         stream->generateInput()->request_id, unique_key, prefill_ip, prefill_port, stream->getDeadlineMs());
-    auto p2p_load_context = p2p_connector_decode_->asyncRead(stream_resource_ptr, p2p_meta);
+    auto p2p_load_context = p2p_connector_client_->asyncRead(stream_resource_ptr, p2p_meta);
     if (!p2p_load_context) {
         RTP_LLM_LOG_WARNING("request [%lld] async read cache from prefill failed", stream->generateInput()->request_id);
         return false;

@@ -3,14 +3,14 @@
 #include "grpc++/grpc++.h"
 
 #include "autil/NetUtil.h"
-#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorDecodeScheduler.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorClientScheduler.h"
 #include "rtp_llm/cpp/cache_new/BatchKVCacheResource.h"
 #include "rtp_llm/cpp/utils/TimeUtil.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/test/TestRpcServer.h"
 
 namespace rtp_llm {
 
-class P2PConnectorDecodeSchedulerTest: public ::testing::Test {
+class P2PConnectorClientSchedulerTest: public ::testing::Test {
 protected:
     void SetUp() override {
         // 创建测试用的 RPC 服务器（用于 TPBroadcastClient）
@@ -22,7 +22,7 @@ protected:
             tp_broadcast_addrs_.push_back("127.0.0.1:" + std::to_string(tp_broadcast_servers_.back()->listenPort()));
         }
 
-        // 创建测试用的 RPC 服务器（用于 PrefillLoadClient）
+        // 创建测试用的 RPC 服务器（用于 P2PConnectorServerCaller）
         auto prefill_service = std::make_unique<TestRpcService>();
         prefill_server_      = std::make_unique<TestRpcServer>(std::move(prefill_service));
         ASSERT_TRUE(prefill_server_->start());
@@ -33,8 +33,8 @@ protected:
         // worker_addrs_ 格式: "ip:cache_store_port:grpc_port"
         gpt_init_parameter_.worker_addrs_.push_back("127.0.0.1:12345:" + std::to_string(prefill_server_->listenPort()));
 
-        // 创建 P2PConnectorDecodeScheduler
-        scheduler_ = std::make_unique<P2PConnectorDecodeScheduler>(gpt_init_parameter_);
+        // 创建 P2PConnectorClientScheduler
+        scheduler_ = std::make_unique<P2PConnectorClientScheduler>(gpt_init_parameter_);
         ASSERT_TRUE(scheduler_->init());
     }
 
@@ -71,12 +71,12 @@ protected:
     std::unique_ptr<TestRpcServer>               prefill_server_;
     std::string                                  prefill_addr_;
     GptInitParameter                             gpt_init_parameter_;
-    std::unique_ptr<P2PConnectorDecodeScheduler> scheduler_;
+    std::unique_ptr<P2PConnectorClientScheduler> scheduler_;
 };
 
 // ---------------------------- asyncRead ----------------------------
 
-TEST_F(P2PConnectorDecodeSchedulerTest, AsyncRead_ReturnNotNull_AllSuccess) {
+TEST_F(P2PConnectorClientSchedulerTest, AsyncRead_ReturnNotNull_AllSuccess) {
     auto resource = createKVCacheResource(2, 2);
 
     std::string unique_key   = "test_async_read_1";
@@ -103,7 +103,7 @@ TEST_F(P2PConnectorDecodeSchedulerTest, AsyncRead_ReturnNotNull_AllSuccess) {
     EXPECT_EQ(prefill_server_->service()->getStartLoadCallCount(), 1);
 }
 
-TEST_F(P2PConnectorDecodeSchedulerTest, AsyncRead_ReturnNull_NullResource) {
+TEST_F(P2PConnectorClientSchedulerTest, AsyncRead_ReturnNull_NullResource) {
     std::string unique_key   = "test_async_read_null_resource";
     int64_t     request_id   = 1002;
     std::string prefill_ip   = "127.0.0.1";
@@ -124,7 +124,7 @@ TEST_F(P2PConnectorDecodeSchedulerTest, AsyncRead_ReturnNull_NullResource) {
     EXPECT_EQ(prefill_server_->service()->getStartLoadCallCount(), 0);
 }
 
-TEST_F(P2PConnectorDecodeSchedulerTest, AsyncRead_ReturnNull_EmptyResource) {
+TEST_F(P2PConnectorClientSchedulerTest, AsyncRead_ReturnNull_EmptyResource) {
     // 创建空的 resource（没有 layer_block_ids）
     auto resource = std::make_shared<KVCacheResourceV1>();
 
@@ -148,7 +148,7 @@ TEST_F(P2PConnectorDecodeSchedulerTest, AsyncRead_ReturnNull_EmptyResource) {
     EXPECT_EQ(prefill_server_->service()->getStartLoadCallCount(), 0);
 }
 
-TEST_F(P2PConnectorDecodeSchedulerTest, AsyncRead_ReturnFalse_BroadcastFailed) {
+TEST_F(P2PConnectorClientSchedulerTest, AsyncRead_ReturnFalse_BroadcastFailed) {
     // 设置第一个服务器返回失败
     tp_broadcast_servers_[0]->service()->setP2PResponseSuccess(false);
 
@@ -178,7 +178,7 @@ TEST_F(P2PConnectorDecodeSchedulerTest, AsyncRead_ReturnFalse_BroadcastFailed) {
     EXPECT_EQ(prefill_server_->service()->getStartLoadCallCount(), 1);
 }
 
-TEST_F(P2PConnectorDecodeSchedulerTest, AsyncRead_ReturnFalse_LoadFailed) {
+TEST_F(P2PConnectorClientSchedulerTest, AsyncRead_ReturnFalse_LoadFailed) {
     // 设置 prefill 服务器返回失败
     prefill_server_->service()->setStartLoadResponseSuccess(false);
 

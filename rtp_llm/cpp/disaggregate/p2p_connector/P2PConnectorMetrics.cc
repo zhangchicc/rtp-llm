@@ -69,7 +69,7 @@ bool P2PConnectorMetrics::init(kmonitor::MetricsGroupManager* manager) {
 }
 
 void P2PConnectorMetrics::report(const kmonitor::MetricsTags*                 tags,
-                                 P2PConnectorDecodeSchedulerMetricsCollector* collector) {
+                                 P2PConnectorClientSchedulerMetricsCollector* collector) {
     REPORT_MUTABLE_QPS(decode_schedule_qps_metric);
     if (!collector->success) {
         REPORT_MUTABLE_QPS(decode_schedule_failed_qps_metric);
@@ -80,7 +80,7 @@ void P2PConnectorMetrics::report(const kmonitor::MetricsTags*                 ta
 }
 
 void P2PConnectorMetrics::report(const kmonitor::MetricsTags*              tags,
-                                 P2PConnectorDecodeWorkerMetricsCollector* collector) {
+                                 P2PConnectorClientWorkerMetricsCollector* collector) {
     REPORT_MUTABLE_QPS(decode_worker_qps_metric);
     if (!collector->success) {
         REPORT_MUTABLE_QPS(decode_worker_failed_qps_metric);
@@ -95,7 +95,7 @@ void P2PConnectorMetrics::report(const kmonitor::MetricsTags*              tags,
 }
 
 void P2PConnectorMetrics::report(const kmonitor::MetricsTags*                       tags,
-                                 P2PConnectorDecodeSchedulerStatusMetricsCollector* collector) {
+                                 P2PConnectorClientSchedulerStatusMetricsCollector* collector) {
     REPORT_MUTABLE_METRIC(decode_scheduler_check_once_cost_time_us_metric, collector->check_once_cost_time_us);
     REPORT_MUTABLE_METRIC(decode_scheduler_inflight_context_count_metric, collector->inflight_context_count);
 }
@@ -115,8 +115,8 @@ void P2PConnectorMetrics::report(const kmonitor::MetricsTags*              tags,
     }
 }
 //
-void P2PConnectorMetrics::report(const kmonitor::MetricsTags*                  tags,
-                                 P2PConnectorPrefillSchedulerMetricsCollector* collector) {
+void P2PConnectorMetrics::report(const kmonitor::MetricsTags*                 tags,
+                                 P2PConnectorServerSchedulerMetricsCollector* collector) {
     REPORT_MUTABLE_QPS(prefill_scheduler_qps_metric);
     if (!collector->success) {
         REPORT_MUTABLE_QPS(prefill_scheduler_failed_qps_metric);
@@ -126,8 +126,8 @@ void P2PConnectorMetrics::report(const kmonitor::MetricsTags*                  t
     }
 }
 
-void P2PConnectorMetrics::report(const kmonitor::MetricsTags*                    tags,
-                                 P2PConnectorPrefillWorkerWriteMetricsCollector* collector) {
+void P2PConnectorMetrics::report(const kmonitor::MetricsTags*                   tags,
+                                 P2PConnectorServerWorkerWriteMetricsCollector* collector) {
     REPORT_MUTABLE_QPS(prefill_worker_write_qps_metric);
     if (!collector->success) {
         REPORT_MUTABLE_QPS(prefill_worker_write_failed_qps_metric);
@@ -144,15 +144,15 @@ void P2PConnectorMetrics::report(const kmonitor::MetricsTags*                   
     }
 }
 
-void P2PConnectorMetrics::report(const kmonitor::MetricsTags*                     tags,
-                                 P2PConnectorPrefillWorkerStatusMetricsCollector* collector) {
+void P2PConnectorMetrics::report(const kmonitor::MetricsTags*                    tags,
+                                 P2PConnectorServerWorkerStatusMetricsCollector* collector) {
     REPORT_MUTABLE_METRIC(prefill_worker_wait_store_event_count_metric, collector->wait_store_event_count);
     REPORT_MUTABLE_METRIC(prefill_worker_task_count_metric, collector->task_count);
     REPORT_MUTABLE_METRIC(prefill_worker_computed_request_count_metric, collector->computed_request_count);
 }
 
-void P2PConnectorMetrics::report(const kmonitor::MetricsTags*                    tags,
-                                 P2PConnectorPrefillWorkerStoreMetricsCollector* collector) {
+void P2PConnectorMetrics::report(const kmonitor::MetricsTags*                   tags,
+                                 P2PConnectorServerWorkerStoreMetricsCollector* collector) {
     REPORT_MUTABLE_QPS(prefill_worker_store_qps_metric);
     if (!collector->success) {
         REPORT_MUTABLE_QPS(prefill_worker_store_failed_qps_metric);

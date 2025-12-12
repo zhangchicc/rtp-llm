@@ -12,12 +12,12 @@
 
 namespace rtp_llm {
 
-class P2PConnectorDecodeWorker {
+class P2PConnectorClientWorker {
 public:
-    P2PConnectorDecodeWorker(const GptInitParameter&                  gpt_init_parameter,
+    P2PConnectorClientWorker(const GptInitParameter&                  gpt_init_parameter,
                              const std::shared_ptr<KVCacheAllocator>& kv_cache_allocator,
                              const kmonitor::MetricsReporterPtr&      metrics_reporter);
-    ~P2PConnectorDecodeWorker();
+    ~P2PConnectorClientWorker();
 
 public:
     bool init();
@@ -42,17 +42,17 @@ private:
     kmonitor::MetricsReporterPtr               metrics_reporter_;
 };
 
-class P2PConnectorDecodeWorkerTPCallback: public TPBroadcastService::Callback {
+class P2PConnectorClientWorkerTPCallback: public TPBroadcastService::Callback {
 public:
-    P2PConnectorDecodeWorkerTPCallback(const std::shared_ptr<P2PConnectorDecodeWorker>& p2p_connector_decode_worker);
-    ~P2PConnectorDecodeWorkerTPCallback() = default;
+    P2PConnectorClientWorkerTPCallback(const std::shared_ptr<P2PConnectorClientWorker>& p2p_connector_decode_worker);
+    ~P2PConnectorClientWorkerTPCallback() = default;
 
 public:
     bool         shouldProcess(const BroadcastTpRequestPB& request) override;
     grpc::Status onBroadcastTp(const BroadcastTpRequestPB& request, BroadcastTpResponsePB& response) override;
 
 private:
-    std::shared_ptr<P2PConnectorDecodeWorker> p2p_connector_decode_worker_;
+    std::shared_ptr<P2PConnectorClientWorker> p2p_connector_decode_worker_;
 };
 
 }  // namespace rtp_llm

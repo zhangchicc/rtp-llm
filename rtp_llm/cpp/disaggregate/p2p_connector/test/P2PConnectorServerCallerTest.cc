@@ -3,13 +3,13 @@
 #include "grpc++/grpc++.h"
 
 #include "autil/NetUtil.h"
-#include "rtp_llm/cpp/disaggregate/p2p_connector/PrefillLoadClient.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorServerCaller.h"
 #include "rtp_llm/cpp/utils/TimeUtil.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/test/TestRpcServer.h"
 
 namespace rtp_llm {
 
-class PrefillLoadClientTest: public ::testing::Test {
+class P2PConnectorServerCallerTest: public ::testing::Test {
 protected:
     void SetUp() override {
         // 创建测试用的 RPC 服务器
@@ -22,8 +22,8 @@ protected:
         // worker_addrs_ 格式: "ip:cache_store_port:grpc_port"
         gpt_init_parameter_.worker_addrs_.push_back("127.0.0.1:12345:" + std::to_string(server_->listenPort()));
 
-        // 创建 PrefillLoadClient
-        client_ = std::make_unique<PrefillLoadClient>(gpt_init_parameter_);
+        // 创建 P2PConnectorServerCaller
+        client_ = std::make_unique<P2PConnectorServerCaller>(gpt_init_parameter_);
     }
 
     void TearDown() override {
@@ -32,15 +32,15 @@ protected:
     }
 
 protected:
-    std::unique_ptr<TestRpcServer>     server_;
-    std::string                        server_addr_;
-    GptInitParameter                   gpt_init_parameter_;
-    std::unique_ptr<PrefillLoadClient> client_;
+    std::unique_ptr<TestRpcServer>            server_;
+    std::string                               server_addr_;
+    GptInitParameter                          gpt_init_parameter_;
+    std::unique_ptr<P2PConnectorServerCaller> client_;
 };
 
 // ---------------------------- load ----------------------------
 
-TEST_F(PrefillLoadClientTest, Load_ReturnNotNull_RequestSuccess) {
+TEST_F(P2PConnectorServerCallerTest, Load_ReturnNotNull_RequestSuccess) {
     std::string unique_key   = "test_load_1";
     int64_t     request_id   = 1001;
     int64_t     deadline_ms  = currentTimeMs() + 5000;
@@ -63,7 +63,7 @@ TEST_F(PrefillLoadClientTest, Load_ReturnNotNull_RequestSuccess) {
     EXPECT_EQ(server_->service()->getStartLoadCallCount(), 1);
 }
 
-TEST_F(PrefillLoadClientTest, Load_ReturnNotNull_RequestFailed) {
+TEST_F(P2PConnectorServerCallerTest, Load_ReturnNotNull_RequestFailed) {
     // 设置服务器返回失败
     server_->service()->setStartLoadResponseSuccess(false);
 
@@ -87,7 +87,7 @@ TEST_F(PrefillLoadClientTest, Load_ReturnNotNull_RequestFailed) {
     EXPECT_EQ(server_->service()->getStartLoadCallCount(), 1);
 }
 
-TEST_F(PrefillLoadClientTest, Load_ReturnNotNull_Timeout) {
+TEST_F(P2PConnectorServerCallerTest, Load_ReturnNotNull_Timeout) {
     // 设置服务器延迟响应
     server_->service()->setSleepMillis(200);
 
@@ -110,7 +110,7 @@ TEST_F(PrefillLoadClientTest, Load_ReturnNotNull_Timeout) {
     EXPECT_GE(server_->service()->getStartLoadCallCount(), 1);
 }
 
-TEST_F(PrefillLoadClientTest, Load_ReturnNull_InvalidServerAddr) {
+TEST_F(P2PConnectorServerCallerTest, Load_ReturnNull_InvalidServerAddr) {
     std::string unique_key   = "test_load_invalid_addr";
     int64_t     request_id   = 1004;
     int64_t     deadline_ms  = currentTimeMs() + 5000;
@@ -127,7 +127,7 @@ TEST_F(PrefillLoadClientTest, Load_ReturnNull_InvalidServerAddr) {
     }
 }
 
-TEST_F(PrefillLoadClientTest, Load_ReturnNotNull_RpcStatusFailed) {
+TEST_F(P2PConnectorServerCallerTest, Load_ReturnNotNull_RpcStatusFailed) {
     // 设置服务器返回 RPC 错误状态
     server_->service()->setRpcResponseStatus(::grpc::Status(grpc::StatusCode::INTERNAL, "Internal error"));
 

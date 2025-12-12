@@ -15,10 +15,10 @@ bool DecodeRpcServiceImpl::init() {
         return false;
     }
 
-    // Create P2PConnectorDecode (which internally manages scheduler and worker)
-    connector_ = std::make_shared<P2PConnectorDecode>(gpt_params_, kv_cache_allocator_, metrics_reporter_);
+    // Create P2PConnectorClient (which internally manages scheduler and worker)
+    connector_ = std::make_shared<P2PConnectorClient>(gpt_params_, kv_cache_allocator_, metrics_reporter_);
     if (!connector_->init()) {
-        std::cerr << "Failed to initialize P2PConnectorDecode" << std::endl;
+        std::cerr << "Failed to initialize P2PConnectorClient" << std::endl;
         return false;
     }
 
@@ -49,7 +49,7 @@ std::shared_ptr<PerfTestRpcServiceBase> DecodeRpcServer::createRpcService() {
     return rpc_service;
 }
 
-std::shared_ptr<P2PConnectorDecode> DecodeRpcServer::getConnector() const {
+std::shared_ptr<P2PConnectorClient> DecodeRpcServer::getConnector() const {
     auto decode_service = std::dynamic_pointer_cast<DecodeRpcServiceImpl>(rpc_service_);
     return decode_service ? decode_service->getConnector() : nullptr;
 }

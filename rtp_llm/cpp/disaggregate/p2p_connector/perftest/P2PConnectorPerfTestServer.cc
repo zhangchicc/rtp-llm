@@ -353,8 +353,8 @@ void P2PConnectorPerfTestServer::printConfig() const {
     std::cout << "===================================================" << std::endl;
 }
 
-std::vector<std::shared_ptr<P2PConnectorPrefill>> P2PConnectorPerfTestServer::getConnectors() const {
-    std::vector<std::shared_ptr<P2PConnectorPrefill>> connectors;
+std::vector<std::shared_ptr<P2PConnectorServer>> P2PConnectorPerfTestServer::getConnectors() const {
+    std::vector<std::shared_ptr<P2PConnectorServer>> connectors;
     for (const auto& server : servers_) {
         auto connector = server->getConnector();
         if (connector) {

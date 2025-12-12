@@ -34,7 +34,8 @@ TPBroadcastClient::broadcast(int64_t                                            
                              const std::vector<std::pair<std::string, uint32_t>>&  decode_transfer_servers,
                              const std::string&                                    unique_key,
                              int64_t                                               deadline_ms,
-                             int64_t                                               timeout_ms) {
+                             int64_t                                               timeout_ms,
+                             bool                                                  is_buffer_ready) {
     // 构建 BroadcastTpRequestPB
     std::vector<BroadcastTpRequestPB> requests;
     size_t                            worker_num = tp_broadcast_manager_->workerNum();
@@ -71,7 +72,8 @@ void TPBroadcastClient::genBroadcastRequest(
     const std::vector<std::shared_ptr<LayerCacheBuffer>>& layer_cache_buffers,
     const std::vector<std::pair<std::string, uint32_t>>&  decode_transfer_servers,
     const std::string&                                    unique_key,
-    int64_t                                               deadline_ms) {
+    int64_t                                               deadline_ms,
+    bool                                                  is_buffer_ready) {
     auto p2p_request = request.mutable_p2p_request();
 
     // 设置 layer_blocks
@@ -95,6 +97,7 @@ void TPBroadcastClient::genBroadcastRequest(
     p2p_request->set_request_id(request_id);
     p2p_request->set_is_cancel(false);
     p2p_request->set_deadline_ms(deadline_ms);
+    p2p_request->set_is_buffer_ready(is_buffer_ready);
 }
 
 void TPBroadcastClient::cancel(const std::shared_ptr<Result>& result, int64_t timeout_ms) {

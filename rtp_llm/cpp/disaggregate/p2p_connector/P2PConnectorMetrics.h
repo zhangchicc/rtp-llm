@@ -7,31 +7,31 @@ namespace rtp_llm {
 
 class P2PConnectorMetrics;
 
-class P2PConnectorDecodeSchedulerMetricsCollector final {
+class P2PConnectorClientSchedulerMetricsCollector final {
 public:
-    P2PConnectorDecodeSchedulerMetricsCollector(const std::shared_ptr<kmonitor::MetricsReporter>& metrics_reporter):
+    P2PConnectorClientSchedulerMetricsCollector(const std::shared_ptr<kmonitor::MetricsReporter>& metrics_reporter):
         start_time_us(currentTimeUs()), metrics_reporter_(metrics_reporter) {}
-    ~P2PConnectorDecodeSchedulerMetricsCollector() {
+    ~P2PConnectorClientSchedulerMetricsCollector() {
         if (metrics_reporter_) {
-            metrics_reporter_->report<P2PConnectorMetrics, P2PConnectorDecodeSchedulerMetricsCollector>(nullptr, this);
+            metrics_reporter_->report<P2PConnectorMetrics, P2PConnectorClientSchedulerMetricsCollector>(nullptr, this);
         }
     }
 
 public:
-    bool    success                   = true;
-    int64_t start_time_us             = 0;
-    int64_t prefill_load_cost_time_us = 0;
-    int64_t tp_sync_cost_time_us      = 0;
-    int64_t total_cost_time_us        = 0;
+    bool    success                  = true;
+    int64_t start_time_us            = 0;
+    int64_t server_call_cost_time_us = 0;
+    int64_t tp_sync_cost_time_us     = 0;
+    int64_t total_cost_time_us       = 0;
 
 private:
     std::shared_ptr<kmonitor::MetricsReporter> metrics_reporter_;
 };
 
-class P2PConnectorDecodeWorkerMetricsCollector final {
+class P2PConnectorClientWorkerMetricsCollector final {
 public:
-    P2PConnectorDecodeWorkerMetricsCollector()  = default;
-    ~P2PConnectorDecodeWorkerMetricsCollector() = default;
+    P2PConnectorClientWorkerMetricsCollector()  = default;
+    ~P2PConnectorClientWorkerMetricsCollector() = default;
 
 public:
     bool    success                  = true;
@@ -40,26 +40,26 @@ public:
     int64_t total_cost_time_us       = 0;
 };
 
-class P2PConnectorDecodeSchedulerStatusMetricsCollector final {
+class P2PConnectorClientSchedulerStatusMetricsCollector final {
 public:
     int64_t check_once_cost_time_us = 0;
     int64_t inflight_context_count  = 0;
 };
 
-class P2PConnectorPrefillSchedulerMetricsCollector final {
+class P2PConnectorServerSchedulerMetricsCollector final {
 public:
-    P2PConnectorPrefillSchedulerMetricsCollector()  = default;
-    ~P2PConnectorPrefillSchedulerMetricsCollector() = default;
+    P2PConnectorServerSchedulerMetricsCollector()  = default;
+    ~P2PConnectorServerSchedulerMetricsCollector() = default;
 
 public:
     bool    success            = true;
     int64_t total_cost_time_us = 0;
 };
 
-class P2PConnectorPrefillWorkerStoreMetricsCollector final {
+class P2PConnectorServerWorkerStoreMetricsCollector final {
 public:
-    P2PConnectorPrefillWorkerStoreMetricsCollector(): start_time_us(currentTimeUs()) {}
-    ~P2PConnectorPrefillWorkerStoreMetricsCollector() = default;
+    P2PConnectorServerWorkerStoreMetricsCollector(): start_time_us(currentTimeUs()) {}
+    ~P2PConnectorServerWorkerStoreMetricsCollector() = default;
 
 public:
     bool    success                 = true;
@@ -68,17 +68,17 @@ public:
     int64_t start_time_us           = 0;
 };
 
-class P2PConnectorPrefillWorkerStatusMetricsCollector final {
+class P2PConnectorServerWorkerStatusMetricsCollector final {
 public:
     int64_t wait_store_event_count = 0;
     int64_t task_count             = 0;
     int64_t computed_request_count = 0;
 };
 
-class P2PConnectorPrefillWorkerWriteMetricsCollector final {
+class P2PConnectorServerWorkerWriteMetricsCollector final {
 public:
-    P2PConnectorPrefillWorkerWriteMetricsCollector()  = default;
-    ~P2PConnectorPrefillWorkerWriteMetricsCollector() = default;
+    P2PConnectorServerWorkerWriteMetricsCollector()  = default;
+    ~P2PConnectorServerWorkerWriteMetricsCollector() = default;
 
 public:
     bool    success                  = true;
@@ -105,15 +105,15 @@ public:
 
 public:
     bool init(kmonitor::MetricsGroupManager* manager) override;
-    void report(const kmonitor::MetricsTags* tags, P2PConnectorDecodeSchedulerMetricsCollector* collector);
-    void report(const kmonitor::MetricsTags* tags, P2PConnectorDecodeWorkerMetricsCollector* collector);
-    void report(const kmonitor::MetricsTags* tags, P2PConnectorDecodeSchedulerStatusMetricsCollector* collector);
+    void report(const kmonitor::MetricsTags* tags, P2PConnectorClientSchedulerMetricsCollector* collector);
+    void report(const kmonitor::MetricsTags* tags, P2PConnectorClientWorkerMetricsCollector* collector);
+    void report(const kmonitor::MetricsTags* tags, P2PConnectorClientSchedulerStatusMetricsCollector* collector);
     void report(const kmonitor::MetricsTags* tags, P2PConnectorStreamStoreMetricsCollector1* collector);
     void report(const kmonitor::MetricsTags* tags, P2PConnectorStreamStoreMetricsCollector2* collector);
-    void report(const kmonitor::MetricsTags* tags, P2PConnectorPrefillSchedulerMetricsCollector* collector);
-    void report(const kmonitor::MetricsTags* tags, P2PConnectorPrefillWorkerWriteMetricsCollector* collector);
-    void report(const kmonitor::MetricsTags* tags, P2PConnectorPrefillWorkerStatusMetricsCollector* collector);
-    void report(const kmonitor::MetricsTags* tags, P2PConnectorPrefillWorkerStoreMetricsCollector* collector);
+    void report(const kmonitor::MetricsTags* tags, P2PConnectorServerSchedulerMetricsCollector* collector);
+    void report(const kmonitor::MetricsTags* tags, P2PConnectorServerWorkerWriteMetricsCollector* collector);
+    void report(const kmonitor::MetricsTags* tags, P2PConnectorServerWorkerStatusMetricsCollector* collector);
+    void report(const kmonitor::MetricsTags* tags, P2PConnectorServerWorkerStoreMetricsCollector* collector);
 
 private:
     // decode schedule metrics

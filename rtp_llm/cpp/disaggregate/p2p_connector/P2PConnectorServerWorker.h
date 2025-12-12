@@ -23,12 +23,12 @@
 
 namespace rtp_llm {
 
-class P2PConnectorPrefillWorker {
+class P2PConnectorServerWorker {
 public:
-    P2PConnectorPrefillWorker(const GptInitParameter&                  gpt_init_parameter,
-                              const std::shared_ptr<KVCacheAllocator>& kv_cache_allocator,
-                              const kmonitor::MetricsReporterPtr&      metrics_reporter);
-    ~P2PConnectorPrefillWorker();
+    P2PConnectorServerWorker(const GptInitParameter&                  gpt_init_parameter,
+                             const std::shared_ptr<KVCacheAllocator>& kv_cache_allocator,
+                             const kmonitor::MetricsReporterPtr&      metrics_reporter);
+    ~P2PConnectorServerWorker();
 
 public:
     bool init();
@@ -38,10 +38,12 @@ public:
                       const std::shared_ptr<KVCacheResourceV1>& resource,
                       int64_t                                   request_id,
                       DeviceEventPtr                            event);
+
     bool write(int64_t                                              request_id,
                const std::string&                                   unique_key,
                int64_t                                              deadline_ms,
                const std::vector<std::pair<std::string, uint32_t>>& decode_transfer_servers);
+
     void cancelWrite(int64_t request_id, const std::string& unique_key);
 
 private:
@@ -80,17 +82,17 @@ private:
     std::atomic<bool>  store_wait_thread_stop_{false};
     mutable std::mutex store_wait_mutex_;
     struct StoreWaitContext {
-        int64_t                                                         request_id;
-        DeviceEventPtr                                                  event;
-        std::shared_ptr<LayerCacheBuffer>                               layer_cache_buffer;
-        int64_t                                                         deadline_ms;
-        std::shared_ptr<P2PConnectorPrefillWorkerStoreMetricsCollector> collector;
+        int64_t                                                        request_id;
+        DeviceEventPtr                                                 event;
+        std::shared_ptr<LayerCacheBuffer>                              layer_cache_buffer;
+        int64_t                                                        deadline_ms;
+        std::shared_ptr<P2PConnectorServerWorkerStoreMetricsCollector> collector;
 
-        StoreWaitContext(int64_t                                                         request_id,
-                         DeviceEventPtr                                                  event,
-                         std::shared_ptr<LayerCacheBuffer>                               layer_cache_buffer,
-                         int64_t                                                         deadline_ms,
-                         std::shared_ptr<P2PConnectorPrefillWorkerStoreMetricsCollector> collector):
+        StoreWaitContext(int64_t                                                        request_id,
+                         DeviceEventPtr                                                 event,
+                         std::shared_ptr<LayerCacheBuffer>                              layer_cache_buffer,
+                         int64_t                                                        deadline_ms,
+                         std::shared_ptr<P2PConnectorServerWorkerStoreMetricsCollector> collector):
             request_id(request_id),
             event(event),
             layer_cache_buffer(layer_cache_buffer),
@@ -101,17 +103,17 @@ private:
     autil::LoopThreadPtr          store_wait_thread_;
 };
 
-class P2PConnectorPrefillWorkerTPCallback: public TPBroadcastService::Callback {
+class P2PConnectorServerWorkerTPCallback: public TPBroadcastService::Callback {
 public:
-    P2PConnectorPrefillWorkerTPCallback(const std::shared_ptr<P2PConnectorPrefillWorker>& p2p_connector_prefill_worker);
-    ~P2PConnectorPrefillWorkerTPCallback() = default;
+    P2PConnectorServerWorkerTPCallback(const std::shared_ptr<P2PConnectorServerWorker>& p2p_connector_prefill_worker);
+    ~P2PConnectorServerWorkerTPCallback() = default;
 
 public:
     bool         shouldProcess(const BroadcastTpRequestPB& request) override;
     grpc::Status onBroadcastTp(const BroadcastTpRequestPB& request, BroadcastTpResponsePB& response) override;
 
 private:
-    std::shared_ptr<P2PConnectorPrefillWorker> p2p_connector_prefill_worker_;
+    std::shared_ptr<P2PConnectorServerWorker> p2p_connector_prefill_worker_;
 };
 
 }  // namespace rtp_llm

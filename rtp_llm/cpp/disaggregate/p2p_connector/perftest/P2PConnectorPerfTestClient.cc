@@ -124,10 +124,10 @@ std::shared_ptr<KVCacheResourceV1> P2PConnectorPerfTestClient::createTestResourc
     return resource;
 }
 
-std::shared_ptr<P2PConnectorDecodeMeta> P2PConnectorPerfTestClient::createTestMeta(int64_t request_id) const {
+std::shared_ptr<P2PConnectorClientMeta> P2PConnectorPerfTestClient::createTestMeta(int64_t request_id) const {
     std::string unique_key = "perftest_request_" + std::to_string(request_id);
 
-    return std::make_shared<P2PConnectorDecodeMeta>(
+    return std::make_shared<P2PConnectorClientMeta>(
         request_id, unique_key, config_.prefill_ip, config_.prefill_port, config_.deadline_ms);
 }
 
@@ -281,8 +281,8 @@ void P2PConnectorPerfTestClient::printConfig() const {
     std::cout << "===================================================" << std::endl;
 }
 
-std::vector<std::shared_ptr<P2PConnectorDecode>> P2PConnectorPerfTestClient::getConnectors() const {
-    std::vector<std::shared_ptr<P2PConnectorDecode>> connectors;
+std::vector<std::shared_ptr<P2PConnectorClient>> P2PConnectorPerfTestClient::getConnectors() const {
+    std::vector<std::shared_ptr<P2PConnectorClient>> connectors;
     for (const auto& server : servers_) {
         auto connector = server->getConnector();
         if (connector) {

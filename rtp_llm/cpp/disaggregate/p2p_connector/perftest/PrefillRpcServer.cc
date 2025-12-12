@@ -20,10 +20,10 @@ bool PrefillRpcServiceImpl::init() {
         return false;
     }
 
-    // Create P2PConnectorPrefill (which internally manages scheduler and worker)
-    connector_ = std::make_shared<P2PConnectorPrefill>(gpt_params_, kv_cache_allocator_, metrics_reporter_);
+    // Create P2PConnectorServer (which internally manages scheduler and worker)
+    connector_ = std::make_shared<P2PConnectorServer>(gpt_params_, kv_cache_allocator_, metrics_reporter_);
     if (!connector_->init()) {
-        std::cerr << "Failed to initialize P2PConnectorPrefill" << std::endl;
+        std::cerr << "Failed to initialize P2PConnectorServer" << std::endl;
         return false;
     }
 
@@ -69,7 +69,7 @@ std::shared_ptr<PerfTestRpcServiceBase> PrefillRpcServer::createRpcService() {
     return rpc_service;
 }
 
-std::shared_ptr<P2PConnectorPrefill> PrefillRpcServer::getConnector() const {
+std::shared_ptr<P2PConnectorServer> PrefillRpcServer::getConnector() const {
     auto prefill_service = std::dynamic_pointer_cast<PrefillRpcServiceImpl>(rpc_service_);
     return prefill_service ? prefill_service->getConnector() : nullptr;
 }

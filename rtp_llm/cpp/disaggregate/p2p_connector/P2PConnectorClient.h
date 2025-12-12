@@ -3,16 +3,16 @@
 #include "rtp_llm/cpp/cache_new/KVCacheConnector.h"
 #include "rtp_llm/cpp/config/GptInitParameter.h"
 #include "rtp_llm/cpp/cache_new/KVCacheAllocator.h"
-#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorDecodeScheduler.h"
-#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorDecodeWorker.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorClientScheduler.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorClientWorker.h"
 #include "rtp_llm/cpp/cache_new/TpBroadcastManager.h"
 #include <memory>
 
 namespace rtp_llm {
 
-class P2PConnectorDecodeMeta: public KVCacheConnector::Meta {
+class P2PConnectorClientMeta: public KVCacheConnector::Meta {
 public:
-    P2PConnectorDecodeMeta(int64_t            request_id,
+    P2PConnectorClientMeta(int64_t            request_id,
                            const std::string& unique_key,
                            const std::string& prefill_ip,
                            uint32_t           prefill_port,
@@ -22,7 +22,7 @@ public:
         prefill_ip_(prefill_ip),
         prefill_port_(prefill_port),
         deadline_ms_(deadline_ms) {}
-    ~P2PConnectorDecodeMeta() override = default;
+    ~P2PConnectorClientMeta() override = default;
 
 public:
     int64_t requestId() const {
@@ -49,13 +49,13 @@ private:
     int64_t     deadline_ms_;
 };
 
-class P2PConnectorDecode: public KVCacheConnector {
+class P2PConnectorClient: public KVCacheConnector {
 
 public:
-    P2PConnectorDecode(const GptInitParameter&                  gpt_init_parameter,
+    P2PConnectorClient(const GptInitParameter&                  gpt_init_parameter,
                        const std::shared_ptr<KVCacheAllocator>& kv_cache_allocator,
                        const kmonitor::MetricsReporterPtr&      metrics_reporter);
-    virtual ~P2PConnectorDecode();
+    virtual ~P2PConnectorClient();
 
 public:
     bool                                            init() override;
@@ -72,7 +72,7 @@ private:
     const GptInitParameter&                      gpt_init_parameter_;
     std::shared_ptr<KVCacheAllocator>            kv_cache_allocator_;
     kmonitor::MetricsReporterPtr                 metrics_reporter_;
-    std::shared_ptr<P2PConnectorDecodeScheduler> scheduler_;
-    std::shared_ptr<P2PConnectorDecodeWorker>    worker_;
+    std::shared_ptr<P2PConnectorClientScheduler> scheduler_;
+    std::shared_ptr<P2PConnectorClientWorker>    worker_;
 };
 }  // namespace rtp_llm

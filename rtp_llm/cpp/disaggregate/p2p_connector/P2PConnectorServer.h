@@ -5,8 +5,8 @@
 #include "rtp_llm/cpp/core/Event.h"
 #include "rtp_llm/cpp/engine_base/stream/GenerateStream.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorStreamStore.h"
-#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorPrefillScheduler.h"
-#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorPrefillWorker.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorServerScheduler.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorServerWorker.h"
 #include "rtp_llm/cpp/cache_new/TpBroadcastManager.h"
 #include <grpc++/grpc++.h>
 #include <memory>
@@ -15,12 +15,12 @@
 
 namespace rtp_llm {
 
-class P2PConnectorPrefill: public KVCacheConnector {
+class P2PConnectorServer: public KVCacheConnector {
 public:
-    P2PConnectorPrefill(const GptInitParameter&                  gpt_init_parameter,
-                        const std::shared_ptr<KVCacheAllocator>& kv_cache_allocator,
-                        const kmonitor::MetricsReporterPtr&      metrics_reporter);
-    ~P2PConnectorPrefill();
+    P2PConnectorServer(const GptInitParameter&                  gpt_init_parameter,
+                       const std::shared_ptr<KVCacheAllocator>& kv_cache_allocator,
+                       const kmonitor::MetricsReporterPtr&      metrics_reporter);
+    ~P2PConnectorServer();
 
 public:
     bool init();
@@ -42,12 +42,12 @@ public:
     std::shared_ptr<TPBroadcastService::Callback> makeCallback();
 
 private:
-    const GptInitParameter&                       gpt_init_parameter_;
-    std::shared_ptr<KVCacheAllocator>             kv_cache_allocator_;
-    kmonitor::MetricsReporterPtr                  metrics_reporter_;
-    std::shared_ptr<P2PConnectorPrefillScheduler> scheduler_;
-    std::shared_ptr<P2PConnectorPrefillWorker>    worker_;
-    std::shared_ptr<PrefillConnectorStreamStore>  stream_store_;
+    const GptInitParameter&                      gpt_init_parameter_;
+    std::shared_ptr<KVCacheAllocator>            kv_cache_allocator_;
+    kmonitor::MetricsReporterPtr                 metrics_reporter_;
+    std::shared_ptr<P2PConnectorServerScheduler> scheduler_;
+    std::shared_ptr<P2PConnectorServerWorker>    worker_;
+    std::shared_ptr<PrefillConnectorStreamStore> stream_store_;
 };
 
 }  // namespace rtp_llm

@@ -8,7 +8,7 @@
 #include <chrono>
 
 #include "rtp_llm/cpp/disaggregate/p2p_connector/perftest/PrefillRpcServer.h"
-#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorPrefill.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorServer.h"
 #include "rtp_llm/cpp/cache_new/BatchKVCacheResource.h"
 #include "rtp_llm/cpp/normal_engine/NormalGenerateStream.h"
 
@@ -117,7 +117,7 @@ public:
     }
 
     /// @brief Get all prefill connectors
-    std::vector<std::shared_ptr<P2PConnectorPrefill>> getConnectors() const;
+    std::vector<std::shared_ptr<P2PConnectorServer>> getConnectors() const;
 
     /// @brief Get prefill server addresses
     std::vector<std::pair<std::string, uint32_t>> getPrefillTransferServerAddrs() const;

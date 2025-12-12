@@ -14,22 +14,22 @@ grpc::Status PrefillRpcServerNew2::init(const EngineInitParams&                 
 
     RTP_LLM_LOG_INFO("prefill rpc server new2 init success");
     // init p2p connector prefill
-    p2p_connector_prefill_ =
-        std::make_shared<P2PConnectorPrefill>(maga_init_params.gpt_init_parameter,
-                                              engine_->getDevice(),
-                                              engine_->resourceContext().cache_manager->getAllocator());
-    if (!p2p_connector_prefill_->init()) {
+    p2p_connector_server_ =
+        std::make_shared<P2PConnectorServer>(maga_init_params.gpt_init_parameter,
+                                             engine_->getDevice(),
+                                             engine_->resourceContext().cache_manager->getAllocator());
+    if (!p2p_connector_server_->init()) {
         RTP_LLM_LOG_ERROR("prefill rpc server new2 init failed, p2p_connector_prefill init failed");
         return grpc::Status(grpc::StatusCode::INTERNAL, "p2p_connector_prefill init failed");
     }
 
-    auto callback = p2p_connector_prefill_->makeCallback();
+    auto callback = p2p_connector_server_->makeCallback();
     if (!callback) {
         RTP_LLM_LOG_ERROR("prefill rpc server new2 init failed, make callback failed");
         return grpc::Status(grpc::StatusCode::INTERNAL, "make callback failed");
     }
     tp_broadcast_service_->registerCallback(callback);
-    engine_->getDevice()->setKVCacheConnector(p2p_connector_prefill_);
+    engine_->getDevice()->setKVCacheConnector(p2p_connector_server_);
 
     RTP_LLM_LOG_INFO("prefill rpc server new2 init p2p_connector_prefill success");
     return grpc::Status::OK;
@@ -63,9 +63,9 @@ grpc::Status PrefillRpcServerNew2::GenerateStreamCall(grpc::ServerContext*      
     RTP_LLM_LOG_DEBUG("request [%ld] enqueue success", request_id);
 
     // add stream to p2p connector prefill
-    if (!generate_context.getStream()->getPdSeparationUniqueKey().empty() && p2p_connector_prefill_ != nullptr) {
-        p2p_connector_prefill_->addStream(generate_context.getStream()->getPdSeparationUniqueKey(),
-                                          generate_context.getStream());
+    if (!generate_context.getStream()->getPdSeparationUniqueKey().empty() && p2p_connector_server_ != nullptr) {
+        p2p_connector_server_->addStream(generate_context.getStream()->getPdSeparationUniqueKey(),
+                                         generate_context.getStream());
     }
 
     generate_context.error_status =
@@ -93,7 +93,7 @@ grpc::Status PrefillRpcServerNew2::StartLoad(grpc::ServerContext*               
         return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "decode_transfer_servers is empty");
     }
     auto status =
-        p2p_connector_prefill_->handleWrite(request->unique_key(), decode_transfer_servers, request->deadline_ms());
+        p2p_connector_server_->handleWrite(request->unique_key(), decode_transfer_servers, request->deadline_ms());
     if (!status.ok()) {
         RTP_LLM_LOG_WARNING("StartLoad request failed, status: %s", status.error_message().c_str());
         return status;
