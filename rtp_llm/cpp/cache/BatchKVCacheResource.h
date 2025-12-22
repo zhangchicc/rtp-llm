@@ -77,16 +77,8 @@ public:
         return cache_keys;
     }
 
-    const CacheKeysType& cacheKeys() const {
-        return cache_keys;
-    }
-
-    size_t reuseBlocksNum() const {
-        return reuse_blocks_num;
-    }
-
-    void setReuseBlocksNum(size_t reuse_blocks_num) {
-        this->reuse_blocks_num = reuse_blocks_num;
+    LayerBlockIds& layerBlockIds() {
+        return layer_block_ids;
     }
 
     std::string debugString() const {
