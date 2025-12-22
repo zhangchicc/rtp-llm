@@ -2,12 +2,17 @@
 
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <thread>
 
 #include "kmonitor/client/MetricsReporter.h"
+#include "rtp_llm/cpp/cache_new/KVCacheConnectorCoordinator.h"
 #include "rtp_llm/cpp/cache_new/KVCacheManager.h"
+#include "rtp_llm/cpp/cache_new/KVCacheMemoryConnector.h"
 #include "rtp_llm/cpp/cache_new/test/BlockPoolTestHelper.h"
 #include "rtp_llm/cpp/core/BufferHelper.h"
+#include "rtp_llm/cpp/devices/DeviceFactory.h"
+#include "rtp_llm/cpp/devices/testing/TestBase.h"
 #include "rtp_llm/cpp/utils/Logger.h"
 
 namespace rtp_llm {
@@ -197,6 +202,102 @@ TEST_F(KVCacheManagerTest, BlockBatchCopy) {
         assertBlockBytesEq(device_, cache_manager, /*layer_id=*/0, dst_block, expected);
         assertBlockBytesEq(device_, cache_manager, /*layer_id=*/1, dst_block, expected);
     }
+}
+
+class MockKVCacheCoordinator: public KVCacheConnectorCoordinator {
+public:
+    MockKVCacheCoordinator(const CacheConfig& config, rtp_llm::DeviceBase* device):
+        KVCacheConnectorCoordinator(
+            config, /*allocator=*/nullptr, device, /*params=*/rtp_llm::GptInitParameter{}, nullptr) {}
+
+    bool copyCache(const CopyCacheRequestPB& request, CopyCacheResponsePB& response) override {
+        ++copy_cache_call_count;
+        last_request = request;
+        if (set_mem_response_success) {
+            response.mutable_mem_response()->set_success(*set_mem_response_success);
+        }
+        return return_value;
+    }
+
+    void clearMemoryCache() override {
+        ++clear_memory_cache_call_count;
+    }
+
+public:
+    int                 copy_cache_call_count{0};
+    int                 clear_memory_cache_call_count{0};
+    CopyCacheRequestPB  last_request;
+    bool                return_value{false};
+    std::optional<bool> set_mem_response_success;
+};
+
+class KVCacheManagerCopyCacheTest: public ::testing::Test {
+protected:
+    void SetUp() override {
+        rtp_llm::initLogger();
+        device_ = createDevice();
+        ASSERT_NE(device_, nullptr);
+
+        CacheConfig config;
+        kv_cache_manager_ = std::make_shared<KVCacheManager>(config, device_);
+    }
+
+    rtp_llm::DeviceBase*            device_{nullptr};
+    std::shared_ptr<KVCacheManager> kv_cache_manager_;
+};
+
+TEST_F(KVCacheManagerCopyCacheTest, CopyCache_ReturnFalse_WhenNoMemRequest) {
+    CopyCacheRequestPB  request;
+    CopyCacheResponsePB response;
+
+    // Request has no mem_request
+    // Should return false and log warning
+    EXPECT_FALSE(kv_cache_manager_->copyCache(request, response));
+}
+
+TEST_F(KVCacheManagerCopyCacheTest, CopyCache_ReturnFalse_WhenCoordinatorIsNull) {
+    CopyCacheRequestPB request;
+    request.mutable_mem_request();  // Add mem_request
+    CopyCacheResponsePB response;
+
+    kv_cache_manager_->connector_coordinator_.reset();
+
+    EXPECT_FALSE(kv_cache_manager_->copyCache(request, response));
+    EXPECT_FALSE(response.mem_response().success());
+    EXPECT_FALSE(kv_cache_manager_->copyCache(request, response));
+    EXPECT_FALSE(response.mem_response().success());
+}
+
+TEST_F(KVCacheManagerCopyCacheTest, CopyCache_DelegatesToCoordinator_AndReturnsTrue) {
+    CopyCacheRequestPB request;
+    request.mutable_mem_request();
+    CopyCacheResponsePB response;
+
+    CacheConfig config;
+    auto        mock_coordinator               = std::make_shared<MockKVCacheCoordinator>(config, device_);
+    mock_coordinator->return_value             = true;
+    mock_coordinator->set_mem_response_success = true;
+    kv_cache_manager_->connector_coordinator_  = mock_coordinator;
+
+    EXPECT_TRUE(kv_cache_manager_->copyCache(request, response));
+    EXPECT_TRUE(response.mem_response().success());
+    EXPECT_EQ(mock_coordinator->copy_cache_call_count, 1);
+}
+
+TEST_F(KVCacheManagerCopyCacheTest, CopyCache_DelegatesToCoordinator_AndReturnsFalse) {
+    CopyCacheRequestPB request;
+    request.mutable_mem_request();
+    CopyCacheResponsePB response;
+
+    CacheConfig config;
+    auto        mock_coordinator               = std::make_shared<MockKVCacheCoordinator>(config, device_);
+    mock_coordinator->return_value             = false;
+    mock_coordinator->set_mem_response_success = false;
+    kv_cache_manager_->connector_coordinator_  = mock_coordinator;
+
+    EXPECT_FALSE(kv_cache_manager_->copyCache(request, response));
+    EXPECT_FALSE(response.mem_response().success());
+    EXPECT_EQ(mock_coordinator->copy_cache_call_count, 1);
 }
 
 }  // namespace test

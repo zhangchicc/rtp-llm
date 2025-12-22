@@ -80,14 +80,14 @@ struct MallocResult {
 struct FreeInfo {
     BatchKVCacheResourcePtr batch_kv_cache_resource;
     CompleteTokenIdsPtr     complete_token_ids;
-
-    int64_t request_id = 0;
+    int64_t                 request_id{0};
+    bool                    reuse_cache{false};
 };
 
 struct InsertInfo {
     BatchKVCacheResourcePtr batch_kv_cache_resource;
     CompleteTokenIdsPtr     complete_token_ids;
-    bool                    is_resident;
+    bool                    is_resident{false};
 };
 
 }  // namespace rtp_llm

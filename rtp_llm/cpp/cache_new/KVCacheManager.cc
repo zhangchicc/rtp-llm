@@ -1,5 +1,6 @@
 #include "rtp_llm/cpp/cache_new/KVCacheManager.h"
 
+#include "rtp_llm/cpp/cache_new/KVCacheConnectorCoordinator.h"
 #include "rtp_llm/cpp/cache_new/SingleTypeKVCacheAllocator.h"
 #include "rtp_llm/cpp/cache_new/BatchKVCacheResource.h"
 #include "rtp_llm/cpp/cache_new/KVCacheHashUtil.h"
@@ -52,11 +53,18 @@ bool KVCacheManager::init() {
             stop_.store(false, std::memory_order_relaxed);
             metrics_reporter_thread_ = std::thread(&KVCacheManager::reportMetricsLoop, this);
         }
-        return true;
     } else {
         RTP_LLM_CHECK_WITH_INFO(false, "SingleTypeKVCacheAllocator only support Full Attention");
         return false;
     }
+
+    if (params_.kv_cache_config.memory_block_cache_size_mb > 0) {
+        if (!initConnectorCoordinator()) {
+            RTP_LLM_LOG_ERROR("init connector coordinator failed");
+            return false;
+        }
+    }
+    return true;
 }
 
 size_t KVCacheManager::availableTokensNum() const {
@@ -168,6 +176,12 @@ MallocResult KVCacheManager::malloc(const MallocInfo& malloc_info) {
 
 void KVCacheManager::free(const FreeInfo& free_info) {
     RTP_LLM_CHECK(free_info.batch_kv_cache_resource && free_info.complete_token_ids);
+    if (free_info.reuse_cache) {
+        InsertInfo insert_info{free_info.batch_kv_cache_resource,
+                               free_info.complete_token_ids,
+                               /*is_resident*/ false};
+        insertIntoCache(insert_info);
+    }
     allocator_->free(free_info);
 }
 
@@ -289,6 +303,65 @@ void KVCacheManager::reportMetricsLoop() {
 
         metrics_reporter_->report<RtpLLMCacheMetrics, RtpLLMCacheMetricsCollector>(&tags, &collector);
         std::this_thread::sleep_for(std::chrono::seconds(1));  // 1s
+    }
+}
+
+bool KVCacheManager::initConnectorCoordinator() {
+    connector_coordinator_ =
+        std::make_shared<KVCacheConnectorCoordinator>(config_, allocator_, device_, params_, metrics_reporter_);
+    if (!connector_coordinator_->init()) {
+        RTP_LLM_LOG_ERROR("connector coordinator init failed");
+        connector_coordinator_.reset();
+        return false;
+    }
+    return true;
+}
+
+std::shared_ptr<AsyncContext>
+KVCacheManager::asyncLoadCache(const std::shared_ptr<KVCacheConnectorReadWriteContext>& connector_context) {
+    if (!connector_coordinator_ || !connector_context) {
+        RTP_LLM_LOG_WARNING(
+            "async load cache failed, coordinator or connector context is null, coordinator: %p, connector context: %p",
+            connector_coordinator_.get(),
+            connector_context.get());
+        return nullptr;
+    }
+    return connector_coordinator_->asyncRead(connector_context, nullptr);
+}
+
+std::shared_ptr<AsyncContext>
+KVCacheManager::asyncStoreCache(const std::shared_ptr<KVCacheConnectorReadWriteContext>& connector_context) {
+    if (!connector_coordinator_ || !connector_context) {
+        RTP_LLM_LOG_WARNING(
+            "async store cache failed, coordinator or connector context is null, coordinator: %p, connector context: %p",
+            connector_coordinator_.get(),
+            connector_context.get());
+        return nullptr;
+    }
+    return connector_coordinator_->asyncWrite(connector_context, nullptr);
+}
+
+bool KVCacheManager::copyCache(const CopyCacheRequestPB& request, CopyCacheResponsePB& response) {
+    if (!request.has_mem_request()) {
+        RTP_LLM_LOG_WARNING("copy cache failed, request is invalid, request: [%s]", request.DebugString().c_str());
+        return false;
+    }
+    if (!connector_coordinator_) {
+        RTP_LLM_LOG_WARNING("copy cache failed, coordinator is null, request: [%s]", request.DebugString().c_str());
+        response.mutable_mem_response()->set_success(false);
+        return false;
+    }
+    return connector_coordinator_->copyCache(request, response);
+}
+
+void KVCacheManager::clearLocalCache() {
+    // clear gpu cache
+    if (allocator_) {
+        allocator_->clearCache();
+    }
+    // clear cpu cache
+    if (connector_coordinator_) {
+        connector_coordinator_->clearMemoryCache();
     }
 }
 
