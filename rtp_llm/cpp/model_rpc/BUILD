@@ -25,6 +25,8 @@ cc_library(
     hdrs = ["RPCPool.h"],
     deps = [
         "//rtp_llm/cpp/model_rpc/proto:model_rpc_service_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
     ],
     visibility = ["//visibility:public"],
 )

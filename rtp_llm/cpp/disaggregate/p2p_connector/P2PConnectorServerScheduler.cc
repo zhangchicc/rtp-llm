@@ -15,7 +15,7 @@ P2PConnectorServerScheduler::P2PConnectorServerScheduler(const GptInitParameter&
 P2PConnectorServerScheduler::~P2PConnectorServerScheduler() {}
 
 bool P2PConnectorServerScheduler::init() {
-    tp_broadcast_client_ = std::make_shared<TPBroadcastClient>(gpt_init_parameter_);
+    tp_broadcast_client_ = std::make_shared<TPBroadcastClient>(gpt_init_parameter_.worker_grpc_addrs_);
     if (!tp_broadcast_client_->init()) {
         RTP_LLM_LOG_ERROR("P2PConnectorServerScheduler init failed: tp_broadcast_client is null");
         return false;

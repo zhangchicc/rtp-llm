@@ -31,7 +31,7 @@ cc_library(
     copts = perftest_copts,
     deps = [
         ":perftest_kv_cache_allocator",
-        "//rtp_llm/cpp/cache:tp_broadcast_manager",
+        "//rtp_llm/cpp/model_rpc:tp_broadcast_manager",
         "//rtp_llm/cpp/config:gpt_init_params",
         "//rtp_llm/cpp/devices:devices_base",
         "//rtp_llm/cpp/model_rpc/proto:model_rpc_service_cc_proto",

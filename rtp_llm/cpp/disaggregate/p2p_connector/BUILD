@@ -35,8 +35,7 @@ cc_library(
         "TPBroadcastClient.h",
     ],
     deps = [
-        "//rtp_llm/cpp/cache:tp_broadcast_manager",
-        "//rtp_llm/cpp/config:gpt_init_params",
+        "//rtp_llm/cpp/model_rpc:tp_broadcast_manager",
         "//rtp_llm/cpp/disaggregate/transfer:basic_types",
     ]
 )

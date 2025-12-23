@@ -1,8 +1,7 @@
 #pragma once
 
-#include "rtp_llm/cpp/cache/TpBroadcastManager.h"
+#include "rtp_llm/cpp/model_rpc/TpBroadcastManager.h"
 #include "rtp_llm/cpp/disaggregate/transfer/LayerCacheBuffer.h"
-#include "rtp_llm/cpp/config/GptInitParameter.h"
 #include "rtp_llm/cpp/utils/TimeUtil.h"
 #include <memory>
 #include <string>
@@ -13,14 +12,16 @@ namespace rtp_llm {
 /// @brief TPBroadcastClient 在 rank0 上调用 broadcast 和 cancel
 class TPBroadcastClient {
 public:
-    TPBroadcastClient(const GptInitParameter& gpt_init_parameter);
+    TPBroadcastClient(const std::vector<std::string>& worker_addrs);
     ~TPBroadcastClient() = default;
 
 public:
     bool init();
 
     struct Result {
-        Result(const std::string& unique_key, const std::shared_ptr<TPBroadcastResult>& tp_broadcast_result):
+        Result(
+            const std::string&                                                                     unique_key,
+            const std::shared_ptr<TPBroadcastResult<BroadcastTpRequestPB, BroadcastTpResponsePB>>& tp_broadcast_result):
             unique_key_(unique_key), tp_broadcast_result_(tp_broadcast_result), start_time_us_(currentTimeUs()) {}
         ~Result() {}
 
@@ -39,10 +40,10 @@ public:
         }
 
     private:
-        std::string                        unique_key_;
-        std::shared_ptr<TPBroadcastResult> tp_broadcast_result_;
-        int64_t                            start_time_us_;
-        int64_t                            total_cost_time_us_;
+        std::string                                                                     unique_key_;
+        std::shared_ptr<TPBroadcastResult<BroadcastTpRequestPB, BroadcastTpResponsePB>> tp_broadcast_result_;
+        int64_t                                                                         start_time_us_;
+        int64_t                                                                         total_cost_time_us_;
     };
 
     std::shared_ptr<Result> broadcast(int64_t                                               request_id,
@@ -66,7 +67,7 @@ private:
     void genCancelRequest(BroadcastTpRequestPB& request, const std::string& unique_key);
 
 private:
-    const GptInitParameter&             gpt_init_parameter_;
+    std::vector<std::string>            worker_addrs_;
     int64_t                             extra_wait_time_ms_{10 * 1000};
     std::shared_ptr<RPCPool>            rpc_pool_;
     std::shared_ptr<TpBroadcastManager> tp_broadcast_manager_;

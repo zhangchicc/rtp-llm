@@ -7,8 +7,7 @@
 
 namespace rtp_llm {
 
-TPBroadcastClient::TPBroadcastClient(const GptInitParameter& gpt_init_parameter):
-    gpt_init_parameter_(gpt_init_parameter) {
+TPBroadcastClient::TPBroadcastClient(const std::vector<std::string>& worker_addrs): worker_addrs_(worker_addrs) {
     // TODO: extra_wait_time_ms_ 需要从配置中获取.
 }
 
@@ -18,7 +17,7 @@ bool TPBroadcastClient::init() {
         RTP_LLM_LOG_ERROR("TPBroadcastClient init failed: rpc_pool_ is null");
         return false;
     }
-    tp_broadcast_manager_ = std::make_shared<TpBroadcastManager>(rpc_pool_, gpt_init_parameter_.worker_grpc_addrs_);
+    tp_broadcast_manager_ = std::make_shared<TpBroadcastManager>(rpc_pool_, worker_addrs_);
     if (!tp_broadcast_manager_->init()) {
         RTP_LLM_LOG_ERROR("TPBroadcastClient init failed: tp_broadcast_manager_ init failed");
         return false;

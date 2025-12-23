@@ -23,11 +23,8 @@ protected:
             server_addrs_.push_back("127.0.0.1:" + std::to_string(servers_.back()->listenPort()));
         }
 
-        // 创建 GptInitParameter
-        gpt_init_parameter_.worker_grpc_addrs_ = server_addrs_;
-
         // 创建 TPBroadcastClient
-        client_ = std::make_unique<TPBroadcastClient>(gpt_init_parameter_);
+        client_ = std::make_unique<TPBroadcastClient>(server_addrs_);
         ASSERT_TRUE(client_->init());
     }
 
@@ -39,7 +36,6 @@ protected:
 protected:
     std::vector<std::unique_ptr<TestRpcServer>> servers_;
     std::vector<std::string>                    server_addrs_;
-    GptInitParameter                            gpt_init_parameter_;
     std::unique_ptr<TPBroadcastClient>          client_;
 
     // 创建测试用的 LayerCacheBuffer
