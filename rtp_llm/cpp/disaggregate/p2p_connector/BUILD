@@ -7,7 +7,7 @@ cc_library(
         "LayerBlockConvertorImpl.h",
     ],
     deps = [
-        "//rtp_llm/cpp/cache_new:cache_new",
+        "//rtp_llm/cpp/cache:cache",
         "//rtp_llm/cpp/disaggregate/transfer:basic_types",
     ]
 )
@@ -35,7 +35,7 @@ cc_library(
         "TPBroadcastClient.h",
     ],
     deps = [
-        "//rtp_llm/cpp/cache_new:tp_broadcast_manager",
+        "//rtp_llm/cpp/cache:tp_broadcast_manager",
         "//rtp_llm/cpp/config:gpt_init_params",
         "//rtp_llm/cpp/disaggregate/transfer:basic_types",
     ]
@@ -73,8 +73,8 @@ cc_library(
         ":tp_broadcast",
         ":server_caller",
         ":p2p_connector_metrics",
-        "//rtp_llm/cpp/cache_new:connector_interface",
-        "//rtp_llm/cpp/cache_new:cache_new",
+        "//rtp_llm/cpp/cache:connector_interface",
+        "//rtp_llm/cpp/cache:cache",
         "//rtp_llm/cpp/config:gpt_init_params",
         "//rtp_llm/cpp/disaggregate/transfer:basic_types",
         "//rtp_llm/cpp/disaggregate/transfer:transfer_server",
@@ -158,8 +158,8 @@ cc_library(
         ":stream_store",
         ":tp_broadcast",
         ":computed_layer_cache_buffer",
-        "//rtp_llm/cpp/cache_new:connector_interface",
-        "//rtp_llm/cpp/cache_new:cache_new",
+        "//rtp_llm/cpp/cache:connector_interface",
+        "//rtp_llm/cpp/cache:cache",
         "//rtp_llm/cpp/config:gpt_init_params",
         "//rtp_llm/cpp/disaggregate/transfer:basic_types",
         "//rtp_llm/cpp/disaggregate/transfer:transfer_client",

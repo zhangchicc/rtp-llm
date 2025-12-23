@@ -1,6 +1,6 @@
 #pragma once
 
-#include "rtp_llm/cpp/cache_new/KVCacheConnector.h"
+#include "rtp_llm/cpp/cache/KVCacheConnector.h"
 #include "rtp_llm/cpp/config/GptInitParameter.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/TPBroadcastClient.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorServerCaller.h"

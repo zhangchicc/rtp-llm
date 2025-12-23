@@ -7,7 +7,7 @@
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorClientWorker.h"
 #include "rtp_llm/cpp/disaggregate/transfer/LayerCacheBuffer.h"
 #include "rtp_llm/cpp/utils/TimeUtil.h"
-#include "rtp_llm/cpp/cache_new/KVCacheAllocator.h"
+#include "rtp_llm/cpp/cache/KVCacheAllocator.h"
 #include "rtp_llm/cpp/devices/DeviceBase.h"
 
 namespace rtp_llm {

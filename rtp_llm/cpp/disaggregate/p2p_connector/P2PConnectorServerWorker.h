@@ -1,15 +1,15 @@
 #pragma once
 
 #include "rtp_llm/cpp/config/GptInitParameter.h"
-#include "rtp_llm/cpp/cache_new/BatchKVCacheResource.h"
+#include "rtp_llm/cpp/cache/BatchKVCacheResource.h"
 #include "rtp_llm/cpp/disaggregate/transfer/LayerCacheBuffer.h"
 #include "rtp_llm/cpp/disaggregate/transfer/TransferClient.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/AsymmetricTpUtil.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/PrefillWorkerLoadContext.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/ComputedLayerCacheBuffer.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorMetrics.h"
-#include "rtp_llm/cpp/cache_new/TpBroadcastManager.h"
-#include "rtp_llm/cpp/cache_new/KVCacheAllocator.h"
+#include "rtp_llm/cpp/cache/TpBroadcastManager.h"
+#include "rtp_llm/cpp/cache/KVCacheAllocator.h"
 #include "rtp_llm/cpp/core/Event.h"
 #include "autil/LoopThread.h"
 #include <memory>

@@ -1,13 +1,13 @@
 #pragma once
 
-#include "rtp_llm/cpp/cache_new/KVCacheConnector.h"
+#include "rtp_llm/cpp/cache/KVCacheConnector.h"
 #include "rtp_llm/cpp/config/GptInitParameter.h"
 #include "rtp_llm/cpp/core/Event.h"
 #include "rtp_llm/cpp/engine_base/stream/GenerateStream.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorStreamStore.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorServerScheduler.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorServerWorker.h"
-#include "rtp_llm/cpp/cache_new/TpBroadcastManager.h"
+#include "rtp_llm/cpp/cache/TpBroadcastManager.h"
 #include <grpc++/grpc++.h>
 #include <memory>
 #include <string>

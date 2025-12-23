@@ -9,7 +9,7 @@
 
 #include "rtp_llm/cpp/disaggregate/p2p_connector/perftest/DecodeRpcServer.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorClient.h"
-#include "rtp_llm/cpp/cache_new/BatchKVCacheResource.h"
+#include "rtp_llm/cpp/cache/BatchKVCacheResource.h"
 
 namespace rtp_llm {
 

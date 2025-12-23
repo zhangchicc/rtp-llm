@@ -1,6 +1,6 @@
 #pragma once
 
-#include "rtp_llm/cpp/cache_new/TpBroadcastManager.h"
+#include "rtp_llm/cpp/cache/TpBroadcastManager.h"
 #include "rtp_llm/cpp/disaggregate/transfer/LayerCacheBuffer.h"
 #include "rtp_llm/cpp/config/GptInitParameter.h"
 #include "rtp_llm/cpp/utils/TimeUtil.h"

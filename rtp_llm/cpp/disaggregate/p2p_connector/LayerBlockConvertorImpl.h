@@ -1,7 +1,7 @@
 #pragma once
 
 #include "rtp_llm/cpp/disaggregate/transfer/LayerBlockConvertor.h"
-#include "rtp_llm/cpp/cache_new/KVCacheAllocator.h"
+#include "rtp_llm/cpp/cache/KVCacheAllocator.h"
 
 namespace rtp_llm {
 

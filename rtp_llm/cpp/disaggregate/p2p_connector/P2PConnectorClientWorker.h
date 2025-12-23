@@ -4,8 +4,8 @@
 #include "rtp_llm/cpp/disaggregate/transfer/LayerCacheBuffer.h"
 #include "rtp_llm/cpp/disaggregate/transfer/TransferServer.h"
 #include "rtp_llm/cpp/disaggregate/transfer/LayerCacheBufferTask.h"
-#include "rtp_llm/cpp/cache_new/KVCacheAllocator.h"
-#include "rtp_llm/cpp/cache_new/TpBroadcastManager.h"
+#include "rtp_llm/cpp/cache/KVCacheAllocator.h"
+#include "rtp_llm/cpp/cache/TpBroadcastManager.h"
 #include <memory>
 #include <string>
 #include <vector>

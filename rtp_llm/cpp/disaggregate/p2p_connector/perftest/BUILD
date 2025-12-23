@@ -16,7 +16,7 @@ cc_library(
     hdrs = ["PerfTestKVCacheAllocator.h"],
     copts = perftest_copts,
     deps = [
-        "//rtp_llm/cpp/cache_new:cache_new",
+        "//rtp_llm/cpp/cache:cache",
         "//rtp_llm/cpp/devices:devices_base",
         "//rtp_llm/cpp/core:buffer",
         "@local_config_cuda//cuda:nccl",  # dependency from devicebase
@@ -31,7 +31,7 @@ cc_library(
     copts = perftest_copts,
     deps = [
         ":perftest_kv_cache_allocator",
-        "//rtp_llm/cpp/cache_new:tp_broadcast_manager",
+        "//rtp_llm/cpp/cache:tp_broadcast_manager",
         "//rtp_llm/cpp/config:gpt_init_params",
         "//rtp_llm/cpp/devices:devices_base",
         "//rtp_llm/cpp/model_rpc/proto:model_rpc_service_cc_proto",
@@ -80,7 +80,7 @@ cc_library(
     copts = perftest_copts,
     deps = [
         ":prefill_rpc_server",
-        "//rtp_llm/cpp/cache_new:batch_kv_cache_resource",
+        "//rtp_llm/cpp/cache:batch_kv_cache_resource",
         "//rtp_llm/cpp/disaggregate/p2p_connector:server_connector",
         "//rtp_llm/cpp/normal_engine:normal_engine",
     ],
@@ -109,7 +109,7 @@ cc_library(
     copts = perftest_copts,
     deps = [
         ":decode_rpc_server",
-        "//rtp_llm/cpp/cache_new:batch_kv_cache_resource",
+        "//rtp_llm/cpp/cache:batch_kv_cache_resource",
         "//rtp_llm/cpp/disaggregate/p2p_connector:client_connector",
     ],
 )

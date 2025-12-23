@@ -1,7 +1,7 @@
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorServerScheduler.h"
 
 #include "rtp_llm/cpp/utils/Logger.h"
-#include "rtp_llm/cpp/cache_new/TpBroadcastManager.h"
+#include "rtp_llm/cpp/cache/TpBroadcastManager.h"
 #include "rtp_llm/cpp/disaggregate/transfer/LayerCacheBufferUtil.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorMetrics.h"
 #include <grpc++/grpc++.h>

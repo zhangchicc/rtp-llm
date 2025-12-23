@@ -4,7 +4,7 @@
 
 #include "autil/NetUtil.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorClientScheduler.h"
-#include "rtp_llm/cpp/cache_new/BatchKVCacheResource.h"
+#include "rtp_llm/cpp/cache/BatchKVCacheResource.h"
 #include "rtp_llm/cpp/utils/TimeUtil.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/test/TestRpcServer.h"
 

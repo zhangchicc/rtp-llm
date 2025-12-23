@@ -74,7 +74,7 @@ cc_test(
     deps = [
         ":test_rpc_server",
         "//rtp_llm/cpp/disaggregate/p2p_connector:client_connector",
-        "//rtp_llm/cpp/cache_new:cache_new",
+        "//rtp_llm/cpp/cache:cache",
         "@com_google_googletest//:gtest",
         "//rtp_llm/cpp/devices/testing:device_test_utils",
     ] + device_impl_target(),
@@ -89,7 +89,7 @@ cc_test(
     ],
     deps = [
         "//rtp_llm/cpp/disaggregate/p2p_connector:server_connector",
-        "//rtp_llm/cpp/cache_new:cache_new",
+        "//rtp_llm/cpp/cache:cache",
         "@com_google_googletest//:gtest",
         "//rtp_llm/cpp/devices/testing:device_test_utils",
     ] + device_impl_target(),
@@ -105,7 +105,7 @@ cc_test(
     deps = [
         ":test_rpc_server",
         "//rtp_llm/cpp/disaggregate/p2p_connector:server_connector",
-        "//rtp_llm/cpp/cache_new:cache_new",
+        "//rtp_llm/cpp/cache:cache",
         "@com_google_googletest//:gtest",
         "//rtp_llm/cpp/devices/testing:device_test_utils",
     ] + device_impl_target(),

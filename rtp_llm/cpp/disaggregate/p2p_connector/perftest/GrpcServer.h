@@ -10,7 +10,7 @@
 #include "rtp_llm/cpp/config/GptInitParameter.h"
 #include "rtp_llm/cpp/devices/DeviceBase.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/perftest/PerfTestKVCacheAllocator.h"
-#include "rtp_llm/cpp/cache_new/TpBroadcastManager.h"
+#include "rtp_llm/cpp/cache/TpBroadcastManager.h"
 #include "rtp_llm/cpp/model_rpc/proto/model_rpc_service.grpc.pb.h"
 
 namespace rtp_llm {
