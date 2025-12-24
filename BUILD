@@ -75,6 +75,11 @@ config_setting(
     define_values = {"use_3fs": "true",},
 )
 
+config_setting(
+    name = "using_rdma_transfer",
+    define_values = {"using_rdma_transfer": "true"},
+)
+
 cc_binary(
     name = "th_transformer_config",
     deps = [
