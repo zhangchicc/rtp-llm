@@ -47,7 +47,7 @@ bool TransferTaskContext::isTimeout() const {
     return currentTimeMs() > request_->deadline_ms();
 }
 
-std::vector<std::pair<BufferPtr, std::shared_ptr<transfer::BlockBufferInfo>>> TransferTaskContext::getTcpBlockPair() {
+std::vector<std::pair<BufferPtr, std::shared_ptr<::transfer::BlockBufferInfo>>> TransferTaskContext::getTcpBlockPair() {
     if (task_ == nullptr || partition_count_ == 0) {
         RTP_LLM_LOG_WARNING("get tcp block pair failed, unique_key: %s, task is nullptr or partition count is 0",
                             unique_key_.c_str());
@@ -63,8 +63,8 @@ std::vector<std::pair<BufferPtr, std::shared_ptr<transfer::BlockBufferInfo>>> Tr
         return {};
     }
 
-    int                                                                           transfer_count = 0;
-    std::vector<std::pair<BufferPtr, std::shared_ptr<transfer::BlockBufferInfo>>> block_pair;
+    int                                                                             transfer_count = 0;
+    std::vector<std::pair<BufferPtr, std::shared_ptr<::transfer::BlockBufferInfo>>> block_pair;
     for (const auto& block_info : layer_block_info.blocks()) {
         int64_t key      = block_info.key();
         auto    block_id = layer_cache_buffer_->getBlockId(key);
@@ -87,7 +87,7 @@ std::vector<std::pair<BufferPtr, std::shared_ptr<transfer::BlockBufferInfo>>> Tr
         }
         for (int i = 0; i < buffers.size(); i++) {
             auto buffer            = buffers[i];
-            auto block_buffer_info = std::make_shared<transfer::BlockBufferInfo>();
+            auto block_buffer_info = std::make_shared<::transfer::BlockBufferInfo>();
             block_buffer_info->CopyFrom(block_info.blocks(i));
             block_pair.push_back({buffer, block_buffer_info});
             collector_->total_block_size += block_buffer_info->len();
@@ -125,7 +125,7 @@ std::vector<std::pair<BufferPtr, std::shared_ptr<RemoteBuffer>>> TransferTaskCon
     }
 
     auto convert_to_remote_buffer_func =
-        [](const transfer::BlockBufferInfo& block_buffer_info) -> std::shared_ptr<RemoteBuffer> {
+        [](const ::transfer::BlockBufferInfo& block_buffer_info) -> std::shared_ptr<RemoteBuffer> {
         const auto& rdma_info = block_buffer_info.rdma_info();
         auto        nic_rkeys = std::make_shared<std::map<uint32_t, uint32_t>>();
 

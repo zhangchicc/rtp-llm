@@ -9,20 +9,19 @@
 
 namespace rtp_llm {
 
-PrefillConnectorStreamStore::PrefillConnectorStreamStore(const kmonitor::MetricsReporterPtr& metrics_reporter):
+P2PConnectorStreamStore::P2PConnectorStreamStore(const kmonitor::MetricsReporterPtr& metrics_reporter):
     metrics_reporter_(metrics_reporter) {}
 
-PrefillConnectorStreamStore::~PrefillConnectorStreamStore() {
+P2PConnectorStreamStore::~P2PConnectorStreamStore() {
     if (check_timeout_thread_) {
         check_timeout_thread_->stop();
     }
 }
 
-bool PrefillConnectorStreamStore::init() {
-    check_timeout_thread_ =
-        autil::LoopThread::createLoopThread(std::bind(&PrefillConnectorStreamStore::checkTimeout, this),
-                                            100,  // 100ms
-                                            "PrefillConnectorStreamStoreCheckTimeoutThread");
+bool P2PConnectorStreamStore::init() {
+    check_timeout_thread_ = autil::LoopThread::createLoopThread(std::bind(&P2PConnectorStreamStore::checkTimeout, this),
+                                                                100,  // 100ms
+                                                                "PrefillConnectorStreamStoreCheckTimeoutThread");
     if (!check_timeout_thread_) {
         RTP_LLM_LOG_ERROR("PrefillConnectorStreamStore init failed: check_timeout_thread is null");
         return false;
@@ -31,12 +30,12 @@ bool PrefillConnectorStreamStore::init() {
     return true;
 }
 
-void PrefillConnectorStreamStore::addStream(const std::string& unique_key, GenerateStreamPtr stream) {
+void P2PConnectorStreamStore::addStream(const std::string& unique_key, GenerateStreamPtr stream) {
     std::lock_guard<std::mutex> lock(stream_map_mutex_);
     stream_map_[unique_key] = std::make_pair(stream, currentTimeUs());
 }
 
-std::shared_ptr<GenerateStream> PrefillConnectorStreamStore::stealStream(const std::string& unique_key) {
+std::shared_ptr<GenerateStream> P2PConnectorStreamStore::stealStream(const std::string& unique_key) {
     std::lock_guard<std::mutex> lock(stream_map_mutex_);
     auto                        it = stream_map_.find(unique_key);
     if (it == stream_map_.end()) {
@@ -49,18 +48,18 @@ std::shared_ptr<GenerateStream> PrefillConnectorStreamStore::stealStream(const s
     return stream;
 }
 
-void PrefillConnectorStreamStore::checkTimeout() {
+void P2PConnectorStreamStore::checkTimeout() {
     std::lock_guard<std::mutex> lock(stream_map_mutex_);
     int64_t                     current_time_ms = currentTimeMs();
     for (auto it = stream_map_.begin(); it != stream_map_.end();) {
         auto& [unique_key, stream_pair]   = *it;
         auto [stream, wait_start_time_us] = stream_pair;
-        if (stream && current_time_ms >= stream->getDeadlineMs()) {
+        if (stream && currentTimeUs() >= stream->deadlineUs()) {
             RTP_LLM_LOG_WARNING(
-                "PrefillConnectorStreamStore: stream timeout, unique_key: %s, deadline_ms: %ld, current_time_ms: %ld",
+                "PrefillConnectorStreamStore: stream timeout, unique_key: %s, deadline_us: %ld, current_time_us: %ld",
                 it->first.c_str(),
-                stream->getDeadlineMs(),
-                current_time_ms);
+                stream->deadlineUs(),
+                currentTimeUs());
             it = stream_map_.erase(it);
             reportStreamMetrics(true, wait_start_time_us);
         } else {
@@ -75,7 +74,7 @@ void PrefillConnectorStreamStore::checkTimeout() {
     }
 }
 
-void PrefillConnectorStreamStore::reportStreamMetrics(bool timeout, int64_t wait_start_time_us) {
+void P2PConnectorStreamStore::reportStreamMetrics(bool timeout, int64_t wait_start_time_us) {
     if (metrics_reporter_) {
         auto collector                 = std::make_shared<P2PConnectorStreamStoreMetricsCollector2>();
         collector->timeout             = timeout;

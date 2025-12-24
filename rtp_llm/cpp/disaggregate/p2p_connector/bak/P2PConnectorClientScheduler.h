@@ -40,25 +40,15 @@ public:
 public:
     bool init();
 
-    std::shared_ptr<P2PConnectorClientAsyncContext> asyncRead(const std::shared_ptr<KVCacheResourceV1>& resource,
-                                                              int64_t                                   request_id,
-                                                              const std::string&                        unique_key,
-                                                              const std::string&                        prefill_ip,
-                                                              uint32_t                                  prefill_port,
-                                                              int64_t                                   deadline_ms);
-
 private:
     void checkOnce();
 
 private:
-    const GptInitParameter&                   gpt_init_parameter_;
-    kmonitor::MetricsReporterPtr              metrics_reporter_;
-    std::shared_ptr<TPBroadcastClient>        tp_broadcast_client_;
-    std::shared_ptr<P2PConnectorServerCaller> server_caller_;
-
-    mutable std::mutex                                           async_contexts_mutex_;
-    std::vector<std::shared_ptr<P2PConnectorClientAsyncContext>> async_contexts_;
-    autil::LoopThreadPtr                                         check_done_thread_;
+    const GptInitParameter&                              gpt_init_parameter_;
+    kmonitor::MetricsReporterPtr                         metrics_reporter_;
+    std::shared_ptr<TPBroadcastClient>                   tp_broadcast_client_;
+    std::shared_ptr<P2PConnectorServerCaller>            server_caller_;
+    std::shared_ptr<P2PConnectorAsyncReadContextChecker> checker_;
 };
 
 }  // namespace rtp_llm

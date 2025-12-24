@@ -8,41 +8,6 @@
 
 namespace rtp_llm {
 
-P2PConnectorClientAsyncContext::P2PConnectorClientAsyncContext(
-    const std::shared_ptr<KVCacheResourceV1>&                           resource,
-    const std::shared_ptr<TPBroadcastClient::Result>&                   tp_sync_result,
-    const std::shared_ptr<P2PConnectorServerCaller::Result>&            server_call_result,
-    const std::shared_ptr<P2PConnectorClientSchedulerMetricsCollector>& collector):
-    resource_(resource),
-    tp_sync_result_(tp_sync_result),
-    server_call_result_(server_call_result),
-    collector_(collector) {}
-
-P2PConnectorClientAsyncContext::~P2PConnectorClientAsyncContext() {}
-
-bool P2PConnectorClientAsyncContext::done() const {
-    return tp_sync_result_->done() && server_call_result_->done();
-}
-
-bool P2PConnectorClientAsyncContext::success() const {
-    return tp_sync_result_->success() && server_call_result_->success();
-}
-
-void P2PConnectorClientAsyncContext::checkDone() {
-    if (!tp_sync_result_->done()) {
-        tp_sync_result_->checkDone();
-    }
-    if (!server_call_result_->done()) {
-        server_call_result_->checkDone();
-    }
-    if (done()) {
-        collector_->success                  = success();
-        collector_->total_cost_time_us       = currentTimeUs() - collector_->start_time_us;
-        collector_->tp_sync_cost_time_us     = tp_sync_result_->totalCostTimeUs();
-        collector_->server_call_cost_time_us = server_call_result_->totalCostTimeUs();
-    }
-}
-
 P2PConnectorClientScheduler::P2PConnectorClientScheduler(const GptInitParameter&             gpt_init_parameter,
                                                          const kmonitor::MetricsReporterPtr& metrics_reporter):
     gpt_init_parameter_(gpt_init_parameter), metrics_reporter_(metrics_reporter) {}

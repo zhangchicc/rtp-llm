@@ -34,6 +34,11 @@ bool P2PConnectorClient::init() {
     return true;
 }
 
+std::shared_ptr<KVCacheAllocator::AsyncMatchContext>
+P2PConnectorClient::asyncMatch(const std::shared_ptr<KVCacheResourceV1>& resource, const std::shared_ptr<Meta>& meta) {
+    return std::make_shared<P2PConnectorAsyncMatchContext>(resource, meta);
+}
+
 std::shared_ptr<KVCacheConnector::AsyncContext>
 P2PConnectorClient::asyncRead(const std::shared_ptr<KVCacheResourceV1>& resource, const std::shared_ptr<Meta>& meta) {
     if (!scheduler_) {

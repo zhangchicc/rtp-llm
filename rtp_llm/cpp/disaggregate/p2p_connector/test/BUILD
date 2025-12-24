@@ -21,105 +21,20 @@ cc_library(
 )
 
 cc_test(
-    name = "tp_broadcast_test",
+    name = "components_test",
     srcs = [
+        "main.cc",
         "TPBroadcastClientTest.cc",
-        "main.cc",
-    ],
-    deps = [
-        ":test_rpc_server",
-        "//rtp_llm/cpp/disaggregate/p2p_connector:tp_broadcast",
-        "@com_google_googletest//:gtest",
-        "//rtp_llm/cpp/devices/testing:device_test_utils",
-    ] + device_impl_target(),
-    copts = test_copts,
-)
-
-cc_test(
-    name = "p2p_connector_server_caller_test",
-    srcs = [
         "P2PConnectorServerCallerTest.cc",
-        "main.cc",
-    ],
-    deps = [
-        ":test_rpc_server",
-        "//rtp_llm/cpp/disaggregate/p2p_connector:server_caller",
-        "@com_google_googletest//:gtest",
-        "//rtp_llm/cpp/devices/testing:device_test_utils",
-    ] + device_impl_target(),
-    copts = test_copts,
-)
-
-cc_test(
-    name = "p2p_connector_client_worker_test",
-    srcs = [
-        "P2PConnectorClientWorkerTest.cc",
-        "main.cc",
-    ],
-    deps = [
-        "//rtp_llm/cpp/disaggregate/p2p_connector:client_connector",
-        "//rtp_llm/cpp/disaggregate/transfer:basic_types",
-        "@com_google_googletest//:gtest",
-        "//rtp_llm/cpp/devices/testing:device_test_utils",
-    ] + device_impl_target(),
-    copts = test_copts,
-)
-
-cc_test(
-    name = "p2p_connector_client_scheduler_test",
-    srcs = [
-        "P2PConnectorClientSchedulerTest.cc",
-        "main.cc",
-    ],
-    deps = [
-        ":test_rpc_server",
-        "//rtp_llm/cpp/disaggregate/p2p_connector:client_connector",
-        "//rtp_llm/cpp/cache:cache",
-        "@com_google_googletest//:gtest",
-        "//rtp_llm/cpp/devices/testing:device_test_utils",
-    ] + device_impl_target(),
-    copts = test_copts,
-)
-
-cc_test(
-    name = "p2p_connector_server_worker_test",
-    srcs = [
-        "P2PConnectorServerWorkerTest.cc",
-        "main.cc",
-    ],
-    deps = [
-        "//rtp_llm/cpp/disaggregate/p2p_connector:server_connector",
-        "//rtp_llm/cpp/cache:cache",
-        "@com_google_googletest//:gtest",
-        "//rtp_llm/cpp/devices/testing:device_test_utils",
-    ] + device_impl_target(),
-    copts = test_copts,
-)
-
-cc_test(
-    name = "p2p_connector_server_scheduler_test",
-    srcs = [
-        "P2PConnectorServerSchedulerTest.cc",
-        "main.cc",
-    ],
-    deps = [
-        ":test_rpc_server",
-        "//rtp_llm/cpp/disaggregate/p2p_connector:server_connector",
-        "//rtp_llm/cpp/cache:cache",
-        "@com_google_googletest//:gtest",
-        "//rtp_llm/cpp/devices/testing:device_test_utils",
-    ] + device_impl_target(),
-    copts = test_copts,
-)
-
-cc_test(
-    name = "asymmetric_tp_util_test",
-    srcs = [
         "AsymmetricTpUtilTest.cc",
-        "main.cc",
+        "PrefillWorkerLoadContextTest.cc",
+        "ComputedLayerCacheBufferTest.cc",
+        "StoreWaitContextTest.cc",
     ],
     deps = [
-        "//rtp_llm/cpp/disaggregate/p2p_connector:asymmetric_tp",
+        ":test_rpc_server",
+        "//rtp_llm/cpp/disaggregate/p2p_connector:components",
+        "//rtp_llm/cpp/disaggregate/transfer:basic_types",
         "@com_google_googletest//:gtest",
         "//rtp_llm/cpp/devices/testing:device_test_utils",
     ] + device_impl_target(),
@@ -127,28 +42,30 @@ cc_test(
 )
 
 cc_test(
-    name = "computed_layer_cache_buffer_store_test",
+    name = "p2p_connector_scheduler_test",
     srcs = [
-        "ComputedLayerCacheBufferStoreTest.cc",
+        "P2PConnectorSchedulerTest.cc",
         "main.cc",
     ],
     deps = [
-        "//rtp_llm/cpp/disaggregate/p2p_connector:computed_layer_cache_buffer",
+        ":test_rpc_server",
+        "//rtp_llm/cpp/disaggregate/p2p_connector:connector",
         "//rtp_llm/cpp/disaggregate/transfer:basic_types",
         "@com_google_googletest//:gtest",
         "//rtp_llm/cpp/devices/testing:device_test_utils",
-    ]+ device_impl_target(),
+    ] + device_impl_target(),
     copts = test_copts,
 )
 
 cc_test(
-    name = "prefill_worker_load_context_test",
+    name = "p2p_connector_worker_test",
     srcs = [
-        "PrefillWorkerLoadContextTest.cc",
+        "P2PConnectorWorkerTest.cc",
         "main.cc",
     ],
     deps = [
-        "//rtp_llm/cpp/disaggregate/p2p_connector:prefill_worker_load_context",
+        "//rtp_llm/cpp/disaggregate/p2p_connector:connector",
+        "//rtp_llm/cpp/disaggregate/transfer:basic_types",
         "@com_google_googletest//:gtest",
         "//rtp_llm/cpp/devices/testing:device_test_utils",
     ] + device_impl_target(),

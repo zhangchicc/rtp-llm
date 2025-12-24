@@ -67,9 +67,10 @@ public:
     ~AsyncReadMeta() override = default;
 
 public:
-    std::pair<int, int> blockRange() const override {
-        return {start_block_index_, size_};
-    }
+    // TODO: use this
+    // std::pair<int, int> blockRange() const override {
+    //    return {start_block_index_, size_};
+    //}
 
 private:
     int start_block_index_;
@@ -138,7 +139,7 @@ KVCacheConnectorCoordinator::asyncRead(const std::shared_ptr<KVCacheConnectorRea
         if (!connector) {
             continue;
         }
-        if (type == KVCacheConnector::ConnectorType::Memory && connector_context->enableMemoryCache()) {
+        if (type == ConnectorType::Memory && connector_context->enableMemoryCache()) {
             auto match_context = connector->asyncMatch(resource, meta);
             if (match_context) {
                 contexts.emplace_back(match_context);
@@ -178,7 +179,7 @@ KVCacheConnectorCoordinator::asyncWrite(const std::shared_ptr<KVCacheConnectorRe
         if (!connector) {
             continue;
         }
-        if (type == KVCacheConnector::ConnectorType::Memory && connector_context->enableMemoryCache()) {
+        if (type == ConnectorType::Memory && connector_context->enableMemoryCache()) {
             auto write_context = connector->asyncWrite(resource, meta);
             if (write_context) {
                 write_contexts.emplace_back(write_context);
@@ -212,7 +213,7 @@ std::shared_ptr<AsyncContext> KVCacheConnectorCoordinator::asyncWriteByLayer(
         if (!connector) {
             continue;
         }
-        if (type == KVCacheConnector::ConnectorType::P2P) {
+        if (type == ConnectorType::P2P) {
             auto write_context = connector->asyncWriteByLayer(layer_id, resource, meta);
             if (write_context) {
                 write_contexts.emplace_back(write_context);
@@ -247,7 +248,7 @@ bool KVCacheConnectorCoordinator::initMemoryConnector() {
 
     // TODO(LXQ): init memory connector
 
-    connectors_[KVCacheConnector::ConnectorType::Memory] = memory_connector_;
+    connectors_[ConnectorType::Memory] = memory_connector_;
     return true;
 }
 
@@ -276,8 +277,7 @@ void KVCacheConnectorCoordinator::updateOnce() {
             auto match_contexts = fused_read_context->fusedMatchContext()->contexts();
             std::vector<std::shared_ptr<AsyncContext>> connector_read_contexts;
             for (int i = 0; i < match_contexts.size(); i++) {
-                auto match_context =
-                    std::dynamic_pointer_cast<KVCacheConnector::AsyncMatchContext>(match_contexts.at(i));
+                auto match_context = std::dynamic_pointer_cast<AsyncMatchContext>(match_contexts.at(i));
                 if (!match_context) {
                     continue;
                 }
@@ -288,7 +288,10 @@ void KVCacheConnectorCoordinator::updateOnce() {
                     std::make_shared<AsyncReadMeta>(reuse_num, match_context->matchedBlockCount() - reuse_num);
                 auto connector = connectors_.at(match_context->connectorType());
                 auto connector_read_context =
-                    connector->asyncRead(fused_read_context->resource(), read_meta, match_context);
+                    connector->asyncRead(fused_read_context->resource(),
+                                         read_meta,
+                                         match_context,
+                                         {reuse_num, match_context->matchedBlockCount() - reuse_num});
                 if (connector_read_context) {
                     connector_read_contexts.emplace_back(connector_read_context);
                     reuse_num = match_context->matchedBlockCount();

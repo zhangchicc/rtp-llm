@@ -61,7 +61,7 @@ private:
     std::shared_ptr<KVCacheConnector> remote_connector_;
     std::shared_ptr<KVCacheConnector> p2p_connector_;
 
-    std::map<KVCacheConnector::ConnectorType, std::shared_ptr<KVCacheConnector>> connectors_;
+    std::map<ConnectorType, std::shared_ptr<KVCacheConnector>> connectors_;
 
     mutable std::mutex                                update_mutex_;
     std::list<std::shared_ptr<FusedAsyncReadContext>> fused_async_read_context_list_;

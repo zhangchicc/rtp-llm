@@ -15,7 +15,8 @@ namespace rtp_llm {
 class TransferServer {
 public:
     TransferServer(const std::shared_ptr<LayerBlockConvertor>& layer_block_convector,
-                   const kmonitor::MetricsReporterPtr&         metrics_reporter);
+                   const std::shared_ptr<IRdmaMemoryManager>&  rdma_memory_manager = nullptr,
+                   const kmonitor::MetricsReporterPtr&         metrics_reporter    = nullptr);
     ~TransferServer();
 
 public:
@@ -38,7 +39,6 @@ public:
 
     bool registerUserMr(const BufferPtr& buffer, uint64_t aligned_size = 0);
 
-private:
     const std::shared_ptr<IRdmaMemoryManager>& getRdmaMemoryManager() const {
         return rdma_memory_manager_;
     }

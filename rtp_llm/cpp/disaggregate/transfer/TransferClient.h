@@ -19,8 +19,10 @@ namespace rtp_llm {
 class TransferClient {
 public:
     TransferClient(const std::shared_ptr<LayerBlockConvertor>& layer_block_convector,
-                   const kmonitor::MetricsReporterPtr&         metrics_reporter):
+                   const std::shared_ptr<IRdmaMemoryManager>&  rdma_memory_manager = nullptr,
+                   const kmonitor::MetricsReporterPtr&         metrics_reporter    = nullptr):
         layer_block_convector_(layer_block_convector),
+        rdma_memory_manager_(rdma_memory_manager),
         metrics_reporter_(metrics_reporter),
         cuda_copy_util_(std::make_unique<CudaCopyUtil>()) {}
     ~TransferClient() = default;
@@ -40,6 +42,10 @@ public:
                           int                                      timeout_ms = 1000);
 
     bool registerUserMr(const BufferPtr& buffer, uint64_t aligned_size);
+
+    const std::shared_ptr<IRdmaMemoryManager>& getRdmaMemoryManager() const {
+        return rdma_memory_manager_;
+    }
 
 private:
     std::shared_ptr<::transfer::LayerBlockTransferRequest>
@@ -64,10 +70,6 @@ private:
                       const std::shared_ptr<::transfer::LayerBlockTransferRequest>& transfer_request,
                       std::function<void(bool)>                                     callback,
                       int                                                           timeout_ms);
-
-    const std::shared_ptr<IRdmaMemoryManager>& getRdmaMemoryManager() const {
-        return rdma_memory_manager_;
-    }
 
 private:
     std::shared_ptr<transfer::TcpClient> tcp_client_;

@@ -31,143 +31,87 @@ protected:
 protected:
 };
 
-// ==================== PrefillWorkerLoadContext 测试 ====================
+TEST_F(PrefillWorkerLoadContextTest, basicTest) {
+    int64_t     request_id     = 1001;
+    std::string unique_key     = "test_key_1";
+    int64_t     deadline_ms    = getDeadlineMs();
+    int         transfer_count = 6;  // 2 contexts * 3 layers
 
-// 测试构造函数和基本属性
-TEST_F(PrefillWorkerLoadContextTest, Constructor) {
-    int64_t     request_id             = 1001;
-    std::string unique_key             = "test_key_1";
-    int64_t     deadline_ms            = getDeadlineMs();
-    auto        asymmetric_tp_contexts = createAsymmetricTPContexts(2);
-    int         num_layers             = 3;
+    PrefillWorkerLoadContext context(request_id, unique_key, deadline_ms, transfer_count);
 
-    PrefillWorkerLoadContext context(request_id, unique_key, deadline_ms, asymmetric_tp_contexts, num_layers);
-
+    // default value test
     EXPECT_EQ(context.requestId(), request_id);
-    EXPECT_EQ(context.asymmetricTPContexts().size(), 2);
-    EXPECT_FALSE(context.isDone());
-    EXPECT_FALSE(context.isCanceled());
-    EXPECT_FALSE(context.isTimeout());
-    EXPECT_TRUE(context.isAllSuccess());
+    EXPECT_FALSE(context.done());
+    EXPECT_FALSE(context.canceled());
+    EXPECT_FALSE(context.timeout());
+    EXPECT_FALSE(context.success());  // 还未完成，所以 success 是 false
 
-    // 初始时所有 layer 都需要传输
-    EXPECT_TRUE(context.needTransfer(0));
-    EXPECT_TRUE(context.needTransfer(1));
-    EXPECT_TRUE(context.needTransfer(2));
-    EXPECT_FALSE(context.needTransfer(3));  // 不存在的 layer
+    ASSERT_EQ(context.getNeedTransferIds().size(), 6);
 
-    // 开始传输 layer 0
-    context.startTransfer(0);
-    EXPECT_FALSE(context.needTransfer(0));
-    EXPECT_TRUE(context.needTransfer(1));
-    EXPECT_TRUE(context.needTransfer(2));
+    EXPECT_TRUE(context.startTransfer(0));
+    EXPECT_EQ(context.getNeedTransferIds().size(), transfer_count - 1);
+    EXPECT_FALSE(context.getNeedTransferIds().count(0) > 0);
 
-    // 完成所有传输
-    // id = layer_id * asymmetric_tp_contexts.size()
-    for (int layer_id = 0; layer_id < num_layers; ++layer_id) {
-        for (size_t ctx_idx = 0; ctx_idx < asymmetric_tp_contexts.size(); ++ctx_idx) {
-            int id = layer_id * static_cast<int>(asymmetric_tp_contexts.size()) + static_cast<int>(ctx_idx);
-            context.notifyDone(id, true);
-        }
+    // 尝试再次开始传输 id 0 应该失败
+    EXPECT_FALSE(context.startTransfer(0));
+
+    for (int i = 1; i < transfer_count; ++i) {
+        context.startTransfer(i);
     }
+    ASSERT_TRUE(context.isAllTransferStarted());
 
-    EXPECT_TRUE(context.isDone());
-}
-
-// 测试 notifyDone 的 success 参数
-TEST_F(PrefillWorkerLoadContextTest, NotifyDoneSuccess) {
-    int64_t     request_id             = 1004;
-    std::string unique_key             = "test_key_4";
-    int64_t     deadline_ms            = getDeadlineMs();
-    auto        asymmetric_tp_contexts = createAsymmetricTPContexts(1);
-    int         num_layers             = 2;
-
-    PrefillWorkerLoadContext context(request_id, unique_key, deadline_ms, asymmetric_tp_contexts, num_layers);
-
-    EXPECT_TRUE(context.isAllSuccess());
-
-    // 第一个传输成功
     context.notifyDone(0, true);
-    EXPECT_TRUE(context.isAllSuccess());
-
-    // 第二个传输失败
-    context.notifyDone(1, false);
-    EXPECT_FALSE(context.isAllSuccess());
+    for (int i = 1; i < transfer_count; ++i) {
+        ASSERT_FALSE(context.isAllTransfersDone());
+        context.notifyDone(i, true);
+    }
+    ASSERT_TRUE(context.isAllTransfersDone());
+    EXPECT_TRUE(context.done());
+    EXPECT_TRUE(context.success());
 }
 
-// 测试 setCanceled 和 isCanceled
 TEST_F(PrefillWorkerLoadContextTest, SetCanceled) {
-    int64_t     request_id             = 1005;
-    std::string unique_key             = "test_key_5";
-    int64_t     deadline_ms            = getDeadlineMs();
-    auto        asymmetric_tp_contexts = createAsymmetricTPContexts(1);
-    int         num_layers             = 2;
+    int64_t     request_id     = 1005;
+    std::string unique_key     = "test_key_5";
+    int64_t     deadline_ms    = getDeadlineMs();
+    int         transfer_count = 1;
 
-    PrefillWorkerLoadContext context(request_id, unique_key, deadline_ms, asymmetric_tp_contexts, num_layers);
+    PrefillWorkerLoadContext context(request_id, unique_key, deadline_ms, transfer_count);
 
-    EXPECT_FALSE(context.isCanceled());
+    ASSERT_EQ(context.getNeedTransferIds().size(), 1);
+    EXPECT_FALSE(context.canceled());
+
+    EXPECT_TRUE(context.startTransfer(0));
+    EXPECT_EQ(context.getNeedTransferIds().size(), transfer_count - 1);
+    EXPECT_FALSE(context.getNeedTransferIds().count(0) > 0);
 
     context.setCanceled();
-    EXPECT_TRUE(context.isCanceled());
+    EXPECT_TRUE(context.canceled());
+
+    EXPECT_TRUE(context.isAllTransferStarted());
+    EXPECT_FALSE(context.isAllTransfersDone());
+
+    context.notifyDone(0, true);
+    EXPECT_TRUE(context.isAllTransfersDone());
+    EXPECT_TRUE(context.done());
+    EXPECT_TRUE(context.success());
 }
 
-// 测试 isTimeout
+// 测试 timeout
 TEST_F(PrefillWorkerLoadContextTest, IsTimeout) {
-    int64_t     request_id             = 1006;
-    std::string unique_key             = "test_key_6";
-    int64_t     deadline_ms            = getDeadlineMs(100);  // 100ms 后过期
-    auto        asymmetric_tp_contexts = createAsymmetricTPContexts(1);
-    int         num_layers             = 2;
+    int64_t     request_id     = 1006;
+    std::string unique_key     = "test_key_6";
+    int64_t     deadline_ms    = getDeadlineMs(100);  // 100ms 后过期
+    int         transfer_count = 2;
 
-    PrefillWorkerLoadContext context(request_id, unique_key, deadline_ms, asymmetric_tp_contexts, num_layers);
+    PrefillWorkerLoadContext context(request_id, unique_key, deadline_ms, transfer_count);
 
     // 立即检查，应该未超时
-    EXPECT_FALSE(context.isTimeout());
+    EXPECT_FALSE(context.timeout());
 
     // 等待 150ms 后检查，应该超时
     std::this_thread::sleep_for(std::chrono::milliseconds(150));
-    EXPECT_TRUE(context.isTimeout());
-}
-
-// 测试 isAllTransfersDone
-TEST_F(PrefillWorkerLoadContextTest, IsAllTransfersDone) {
-    int64_t     request_id             = 1007;
-    std::string unique_key             = "test_key_7";
-    int64_t     deadline_ms            = getDeadlineMs();
-    auto        asymmetric_tp_contexts = createAsymmetricTPContexts(2);  // 2 个 context
-    int         num_layers             = 3;                              // 3 个 layer
-
-    PrefillWorkerLoadContext context(request_id, unique_key, deadline_ms, asymmetric_tp_contexts, num_layers);
-
-    // 初始时没有传输未完成
-    EXPECT_TRUE(context.isAllTransfersDone());
-
-    // 开始传输 layer 0，但还没有完成
-    context.startTransfer(0);
-    EXPECT_FALSE(context.isAllTransfersDone());
-
-    // 完成 layer 0 的所有传输 (2 个)
-    context.notifyDone(0, true);  // layer 0, context 0
-    context.notifyDone(1, true);  // layer 0, context 1
-    // 此时 transferred_ids_.size() = 2
-    // need_transfer_layer_ids_.size() = 2 (layer 1, 2)
-    // (num_layers - need_transfer_layer_ids_.size()) * asymmetric_tp_contexts.size() = (3 - 2) * 2 = 2
-    EXPECT_TRUE(context.isAllTransfersDone());
-
-    // 开始传输 layer 1
-    context.startTransfer(1);
-    // 此时 need_transfer_layer_ids_.size() = 1 (layer 2)
-    // (num_layers - need_transfer_layer_ids_.size()) * asymmetric_tp_contexts.size() = (3 - 1) * 2 = 4
-    // transferred_ids_.size() = 2 < 4，所以应该返回 false
-    EXPECT_FALSE(context.isAllTransfersDone());
-
-    // 完成 layer 1 的所有传输
-    context.notifyDone(2, true);  // layer 1, context 0
-    context.notifyDone(3, true);  // layer 1, context 1
-    // 此时 transferred_ids_.size() = 4
-    // need_transfer_layer_ids_.size() = 1 (layer 2)
-    // (num_layers - need_transfer_layer_ids_.size()) * asymmetric_tp_contexts.size() = (3 - 1) * 2 = 4
-    EXPECT_TRUE(context.isAllTransfersDone());
+    EXPECT_TRUE(context.timeout());
 }
 
 // ==================== PrefillWorkerLoadContextStore 测试 ====================
@@ -175,6 +119,8 @@ TEST_F(PrefillWorkerLoadContextTest, IsAllTransfersDone) {
 // 测试 addContext 和 getContext
 TEST_F(PrefillWorkerLoadContextTest, StoreAddAndGetContext) {
     PrefillWorkerLoadContextStore store;
+
+    EXPECT_EQ(store.getContextsCount(), 0);
 
     int64_t     request_id             = 2001;
     std::string unique_key             = "test_key_store_1";
@@ -185,19 +131,22 @@ TEST_F(PrefillWorkerLoadContextTest, StoreAddAndGetContext) {
     auto context = store.addContext(request_id, unique_key, deadline_ms, asymmetric_tp_contexts, num_layers);
     ASSERT_NE(context, nullptr);
     EXPECT_EQ(context->requestId(), request_id);
+    EXPECT_EQ(store.getContextsCount(), 1);
+
+    // 验证 transfer_count = asymmetric_tp_contexts.size() * num_layers
+    EXPECT_EQ(context->getNeedTransferIds().size(), 6);
 
     auto retrieved = store.getContext(request_id);
     ASSERT_NE(retrieved, nullptr);
     EXPECT_EQ(retrieved->requestId(), request_id);
     EXPECT_EQ(retrieved, context);
 
-    EXPECT_FALSE(store.getContext(9999) != nullptr);
+    EXPECT_EQ(store.getContext(9999), nullptr);
 
     store.removeContext(request_id);
     retrieved = store.getContext(request_id);
     EXPECT_EQ(retrieved, nullptr);
 }
-
 // 测试 checkTimeout - 部分过期，部分未过期
 TEST_F(PrefillWorkerLoadContextTest, StoreCheckTimeoutPartialExpired) {
     PrefillWorkerLoadContextStore store;
@@ -223,8 +172,12 @@ TEST_F(PrefillWorkerLoadContextTest, StoreCheckTimeoutPartialExpired) {
     int64_t deadline_ms3 = currentTimeMs() - 50;
     store.addContext(request_id3, unique_key3, deadline_ms3, asymmetric_tp_contexts, num_layers);
 
+    EXPECT_EQ(store.getContextsCount(), 3);
+
     // 检查超时
     store.checkTimeout();
+
+    EXPECT_EQ(store.getContextsCount(), 1);
 
     // 验证结果
     auto retrieved1 = store.getContext(request_id1);
@@ -236,73 +189,6 @@ TEST_F(PrefillWorkerLoadContextTest, StoreCheckTimeoutPartialExpired) {
 
     auto retrieved3 = store.getContext(request_id3);
     EXPECT_EQ(retrieved3, nullptr);
-}
-
-// 测试完整的传输流程
-TEST_F(PrefillWorkerLoadContextTest, CompleteTransferFlow) {
-    int64_t     request_id             = 5001;
-    std::string unique_key             = "test_key_complete";
-    int64_t     deadline_ms            = getDeadlineMs();
-    auto        asymmetric_tp_contexts = createAsymmetricTPContexts(2);  // 2 个 context
-    int         num_layers             = 3;                              // 3 个 layer
-
-    PrefillWorkerLoadContext context(request_id, unique_key, deadline_ms, asymmetric_tp_contexts, num_layers);
-
-    // 初始状态
-    EXPECT_FALSE(context.isDone());
-    EXPECT_FALSE(context.isCanceled());
-    EXPECT_TRUE(context.isAllSuccess());
-    EXPECT_TRUE(context.needTransfer(0));
-    EXPECT_TRUE(context.needTransfer(1));
-    EXPECT_TRUE(context.needTransfer(2));
-
-    // 开始传输 layer 0
-    context.startTransfer(0);
-    EXPECT_FALSE(context.needTransfer(0));
-
-    // 完成 layer 0 的所有传输
-    context.notifyDone(0, true);  // layer 0, context 0
-    context.notifyDone(1, true);  // layer 0, context 1
-
-    // 开始传输 layer 1
-    context.startTransfer(1);
-    context.notifyDone(2, true);  // layer 1, context 0
-    context.notifyDone(3, true);  // layer 1, context 1
-
-    // 开始传输 layer 2
-    context.startTransfer(2);
-    context.notifyDone(4, true);  // layer 2, context 0
-    context.notifyDone(5, true);  // layer 2, context 1
-
-    // 所有传输完成
-    EXPECT_TRUE(context.isDone());
-    EXPECT_TRUE(context.isAllSuccess());
-}
-
-// 测试取消流程
-TEST_F(PrefillWorkerLoadContextTest, CancelFlow) {
-    int64_t     request_id             = 5002;
-    std::string unique_key             = "test_key_cancel";
-    int64_t     deadline_ms            = getDeadlineMs();
-    auto        asymmetric_tp_contexts = createAsymmetricTPContexts(1);
-    int         num_layers             = 2;
-
-    PrefillWorkerLoadContext context(request_id, unique_key, deadline_ms, asymmetric_tp_contexts, num_layers);
-
-    EXPECT_FALSE(context.isCanceled());
-
-    // 开始传输
-    context.startTransfer(0);
-
-    // 取消
-    context.setCanceled();
-    EXPECT_TRUE(context.isCanceled());
-
-    EXPECT_FALSE(context.isDone());
-    EXPECT_FALSE(context.isAllTransfersDone());
-
-    // 完成传输
-    context.notifyDone(0, true);
 }
 
 }  // namespace rtp_llm

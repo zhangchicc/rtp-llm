@@ -81,24 +81,7 @@ private:
 
     std::atomic<bool>  store_wait_thread_stop_{false};
     mutable std::mutex store_wait_mutex_;
-    struct StoreWaitContext {
-        int64_t                                                        request_id;
-        DeviceEventPtr                                                 event;
-        std::shared_ptr<LayerCacheBuffer>                              layer_cache_buffer;
-        int64_t                                                        deadline_ms;
-        std::shared_ptr<P2PConnectorServerWorkerStoreMetricsCollector> collector;
 
-        StoreWaitContext(int64_t                                                        request_id,
-                         DeviceEventPtr                                                 event,
-                         std::shared_ptr<LayerCacheBuffer>                              layer_cache_buffer,
-                         int64_t                                                        deadline_ms,
-                         std::shared_ptr<P2PConnectorServerWorkerStoreMetricsCollector> collector):
-            request_id(request_id),
-            event(event),
-            layer_cache_buffer(layer_cache_buffer),
-            deadline_ms(deadline_ms),
-            collector(collector) {}
-    };
     std::vector<StoreWaitContext> store_wait_contexts_;
     autil::LoopThreadPtr          store_wait_thread_;
 };

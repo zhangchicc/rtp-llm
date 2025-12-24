@@ -1,21 +1,21 @@
 #include <gtest/gtest.h>
 
 #include "rtp_llm/cpp/disaggregate/p2p_connector/AsymmetricTpUtil.h"
-#include "rtp_llm/cpp/config/GptInitParameter.h"
+#include "rtp_llm/cpp/config/ConfigModules.h"
 
 namespace rtp_llm {
 
 class AsymmetricTpUtilTest: public ::testing::Test {
 protected:
     void SetUp() override {
-        // 默认的 GptInitParameter 设置
-        gpt_init_parameter_ = GptInitParameter();
+        // 默认的 ParallelismConfig 设置
+        parallelism_config_ = ParallelismConfig();
     }
 
     void TearDown() override {}
 
 protected:
-    GptInitParameter gpt_init_parameter_;
+    ParallelismConfig parallelism_config_;
 };
 
 // 场景：tp_size=4, decode_transfer_servers=2, 每个 decode 接收 2 个 prefill 的数据
@@ -41,11 +41,11 @@ TEST_F(AsymmetricTpUtilTest, HandleNP1D_2_4) {
     };
 
     for (int tp_rank = 0; tp_rank < 4; ++tp_rank) {
-        GptInitParameter gpt_init_parameter = gpt_init_parameter_;
-        gpt_init_parameter.tp_rank_         = tp_rank;
-        gpt_init_parameter.tp_size_         = 4;
+        ParallelismConfig parallelism_config = parallelism_config_;
+        parallelism_config.tp_rank           = tp_rank;
+        parallelism_config.tp_size           = 4;
 
-        AsymmetricTpUtil util(gpt_init_parameter);
+        AsymmetricTpUtil util(parallelism_config);
 
         auto contexts = util.handleAsymmetricTP(decode_transfer_servers);
         ASSERT_EQ(contexts.size(), expected_contexts[tp_rank].size());
@@ -81,10 +81,10 @@ TEST_F(AsymmetricTpUtilTest, HandleND1P_4_2) {
     };
 
     for (int tp_rank = 0; tp_rank < 2; ++tp_rank) {
-        GptInitParameter gpt_init_parameter = gpt_init_parameter_;
-        gpt_init_parameter.tp_rank_         = tp_rank;
-        gpt_init_parameter.tp_size_         = 2;
-        AsymmetricTpUtil util(gpt_init_parameter);
+        ParallelismConfig parallelism_config = parallelism_config_;
+        parallelism_config.tp_rank           = tp_rank;
+        parallelism_config.tp_size           = 2;
+        AsymmetricTpUtil util(parallelism_config);
         auto             contexts = util.handleAsymmetricTP(decode_transfer_servers);
         ASSERT_EQ(contexts.size(), expected_contexts[tp_rank].size());
 
@@ -115,10 +115,10 @@ TEST_F(AsymmetricTpUtilTest, HandleNPND_2_2) {
     };
 
     for (int tp_rank = 0; tp_rank < 2; ++tp_rank) {
-        GptInitParameter gpt_init_parameter = gpt_init_parameter_;
-        gpt_init_parameter.tp_rank_         = tp_rank;
-        gpt_init_parameter.tp_size_         = 2;
-        AsymmetricTpUtil util(gpt_init_parameter);
+        ParallelismConfig parallelism_config = parallelism_config_;
+        parallelism_config.tp_rank           = tp_rank;
+        parallelism_config.tp_size           = 2;
+        AsymmetricTpUtil util(parallelism_config);
         auto             contexts = util.handleAsymmetricTP(decode_transfer_servers);
         ASSERT_EQ(contexts.size(), expected_contexts[tp_rank].size());
         for (size_t i = 0; i < contexts.size(); ++i) {
@@ -133,10 +133,10 @@ TEST_F(AsymmetricTpUtilTest, HandleNPND_2_2) {
 }
 
 TEST_F(AsymmetricTpUtilTest, HandleND1P_InvalidDivisibility) {
-    gpt_init_parameter_.tp_size_ = 2;
-    gpt_init_parameter_.tp_rank_ = 0;
+    parallelism_config_.tp_size = 2;
+    parallelism_config_.tp_rank = 0;
 
-    AsymmetricTpUtil util(gpt_init_parameter_);
+    AsymmetricTpUtil util(parallelism_config_);
 
     std::vector<std::pair<std::string, uint32_t>> decode_transfer_servers = {
         {"192.168.1.10", 8080},

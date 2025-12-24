@@ -1,8 +1,10 @@
 package(default_visibility = ["//rtp_llm/cpp/disaggregate/p2p_connector:__subpackages__"])
 
 cc_library(
-    name = "layer_block_convert",
-    srcs = [],
+    name = "layer_block_convertor",
+    srcs = [
+        "LayerBlockConvertorImpl.cc",
+    ],
     hdrs = [
         "LayerBlockConvertorImpl.h",
     ],
@@ -13,7 +15,7 @@ cc_library(
 )
 
 cc_library(
-    name = "p2p_connector_metrics",
+    name = "metrics",
     srcs = [
         "P2PConnectorMetrics.cc",
     ],
@@ -27,145 +29,62 @@ cc_library(
 )
 
 cc_library(
-    name = "tp_broadcast",
+    name = "components",
     srcs = [
         "TPBroadcastClient.cc",
+        "P2PConnectorServerCaller.cc",
+        "AsymmetricTpUtil.cc",
+        "PrefillWorkerLoadContext.cc",
+        "ComputedLayerCacheBuffer.cc",
+        "P2PConnectorStreamStore.cc",
+        "StoreWaitContext.cc",
     ],
     hdrs = [
         "TPBroadcastClient.h",
-    ],
-    deps = [
-        "//rtp_llm/cpp/model_rpc:tp_broadcast_manager",
-        "//rtp_llm/cpp/disaggregate/transfer:basic_types",
-    ]
-)
-
-cc_library(
-    name = "server_caller",
-    srcs = [
-        "P2PConnectorServerCaller.cc",
-    ],
-    hdrs = [
         "P2PConnectorServerCaller.h",
+        "AsymmetricTpUtil.h",
+        "PrefillWorkerLoadContext.h",
+        "ComputedLayerCacheBuffer.h",
+        "P2PConnectorStreamStore.h",
+        "StoreWaitContext.h",
     ],
     deps = [
-        "//rtp_llm/cpp/config:gpt_init_params",
+        ":metrics",
+        "//rtp_llm/cpp/config:config_modules",
+        "//rtp_llm/cpp/core:event",
+        "//rtp_llm/cpp/model_rpc:tp_broadcast_manager",
         "//rtp_llm/cpp/model_rpc:model_rpc_pool",
         "//rtp_llm/cpp/disaggregate/transfer:basic_types",
-    ]
-)
-
-cc_library(
-    name = "client_connector",
-    srcs = [
-        "P2PConnectorClient.cc",
-        "P2PConnectorClientWorker.cc",
-        "P2PConnectorClientScheduler.cc",
-    ],
-    hdrs = [
-        "P2PConnectorClient.h",
-        "P2PConnectorClientWorker.h",
-        "P2PConnectorClientScheduler.h",
-    ],
-    deps = [
-        ":layer_block_convert",
-        ":tp_broadcast",
-        ":server_caller",
-        ":p2p_connector_metrics",
-        "//rtp_llm/cpp/cache:connector_interface",
-        "//rtp_llm/cpp/cache:cache",
-        "//rtp_llm/cpp/config:gpt_init_params",
-        "//rtp_llm/cpp/disaggregate/transfer:basic_types",
-        "//rtp_llm/cpp/disaggregate/transfer:transfer_server",
-        "//rtp_llm/cpp/model_rpc:model_rpc_pool",
+        "//rtp_llm/cpp/engine_base/stream:stream",
+        "//rtp_llm/cpp/utils:time_util",
+        "@havenask//aios/autil:thread",
     ],
     visibility = ["//visibility:public"],
 )
 
 cc_library(
-    name = "asymmetric_tp",
+    name = "connector",
     srcs = [
-        "AsymmetricTpUtil.cc",
+        "P2PConnectorAsyncContext.cc",
+        "P2PConnectorScheduler.cc",
+        "P2PConnectorWorker.cc",
+        "P2PConnector.cc",
     ],
     hdrs = [
-        "AsymmetricTpUtil.h",
+        "P2PConnectorAsyncContext.h",
+        "P2PConnectorScheduler.h",
+        "P2PConnectorWorker.h",
+        "P2PConnector.h",
     ],
     deps = [
-        "//rtp_llm/cpp/config:gpt_init_params",
-    ],
-)
-
-cc_library(
-    name = "prefill_worker_load_context",
-    srcs = [
-        "PrefillWorkerLoadContext.cc",
-    ],
-    hdrs = [
-        "PrefillWorkerLoadContext.h",
-    ],
-    deps = [
-        ":asymmetric_tp",
+        ":components",
+        ":metrics",
+        "//rtp_llm/cpp/cache/connector:connector_header",
         "//rtp_llm/cpp/utils:core_utils",
         "//rtp_llm/cpp/utils:time_util",
-    ]
-)
-
-cc_library(
-    name = "computed_layer_cache_buffer",
-    srcs = [
-        "ComputedLayerCacheBuffer.cc",
-    ],
-    hdrs = [
-        "ComputedLayerCacheBuffer.h",
-    ],
-    deps = [
-        "//rtp_llm/cpp/disaggregate/transfer:basic_types",
-    ],
-)
-
-cc_library(
-    name = "stream_store",
-    srcs = [
-        "P2PConnectorStreamStore.cc",
-    ],
-    hdrs = [
-        "P2PConnectorStreamStore.h",
-    ],
-    deps = [
-        ":p2p_connector_metrics",
-        "//rtp_llm/cpp/engine_base/stream:stream",
-        "//rtp_llm/cpp/utils:time_util",
-    ],
-)
-
-cc_library(
-    name = "server_connector",
-    srcs = [
-        "P2PConnectorServerWorker.cc",
-        "P2PConnectorServerScheduler.cc",
-        "P2PConnectorServer.cc",
-    ],
-    hdrs = [
-        "P2PConnectorServerWorker.h",
-        "P2PConnectorServerScheduler.h",
-        "P2PConnectorServer.h",
-    ],
-    deps = [
-        ":asymmetric_tp",
-        ":layer_block_convert",
-        ":prefill_worker_load_context",
-        ":stream_store",
-        ":tp_broadcast",
-        ":computed_layer_cache_buffer",
-        "//rtp_llm/cpp/cache:connector_interface",
-        "//rtp_llm/cpp/cache:cache",
-        "//rtp_llm/cpp/config:gpt_init_params",
-        "//rtp_llm/cpp/disaggregate/transfer:basic_types",
+        "@havenask//aios/autil:thread",
+        "//rtp_llm/cpp/disaggregate/transfer:transfer_server",
         "//rtp_llm/cpp/disaggregate/transfer:transfer_client",
-        "//rtp_llm/cpp/engine_base/stream:stream",
-        "//rtp_llm/cpp/model_rpc:model_rpc_pool",
-        "//rtp_llm/cpp/utils:core_utils",
-        "//rtp_llm/cpp/utils:time_util",
     ],
     visibility = ["//visibility:public"],
 )

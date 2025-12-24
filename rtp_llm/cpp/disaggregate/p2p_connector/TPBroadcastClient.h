@@ -19,9 +19,7 @@ public:
     bool init();
 
     struct Result {
-        Result(
-            const std::string&                                                                     unique_key,
-            const std::shared_ptr<TPBroadcastResult<BroadcastTpRequestPB, BroadcastTpResponsePB>>& tp_broadcast_result):
+        Result(const std::string& unique_key, const std::shared_ptr<TPBroadcastResult>& tp_broadcast_result):
             unique_key_(unique_key), tp_broadcast_result_(tp_broadcast_result), start_time_us_(currentTimeUs()) {}
         ~Result() {}
 
@@ -40,10 +38,10 @@ public:
         }
 
     private:
-        std::string                                                                     unique_key_;
-        std::shared_ptr<TPBroadcastResult<BroadcastTpRequestPB, BroadcastTpResponsePB>> tp_broadcast_result_;
-        int64_t                                                                         start_time_us_;
-        int64_t                                                                         total_cost_time_us_;
+        std::string                        unique_key_;
+        std::shared_ptr<TPBroadcastResult> tp_broadcast_result_;
+        int64_t                            start_time_us_;
+        int64_t                            total_cost_time_us_;
     };
 
     std::shared_ptr<Result> broadcast(int64_t                                               request_id,
@@ -51,8 +49,7 @@ public:
                                       const std::vector<std::pair<std::string, uint32_t>>&  decode_transfer_servers,
                                       const std::string&                                    unique_key,
                                       int64_t                                               deadline_ms,
-                                      int64_t                                               timeout_ms      = 0,
-                                      bool                                                  is_buffer_ready = false);
+                                      P2PConnectorBroadcastType                             type);
 
     void cancel(const std::shared_ptr<Result>& result, int64_t timeout_ms = 10 * 1000);
 
@@ -62,9 +59,11 @@ private:
                              const std::vector<std::shared_ptr<LayerCacheBuffer>>& layer_cache_buffers,
                              const std::vector<std::pair<std::string, uint32_t>>&  decode_transfer_servers,
                              const std::string&                                    unique_key,
-                             int64_t                                               deadline_ms);
+                             int64_t                                               deadline_ms,
+                             P2PConnectorBroadcastType                             type);
 
     void genCancelRequest(BroadcastTpRequestPB& request, const std::string& unique_key);
+    void setExtraWaitTimeMs(int64_t extra_wait_time_ms);
 
 private:
     std::vector<std::string>            worker_addrs_;

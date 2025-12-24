@@ -1,6 +1,5 @@
 #pragma once
 
-#include "rtp_llm/cpp/config/GptInitParameter.h"
 #include "rtp_llm/cpp/model_rpc/RPCPool.h"
 #include "rtp_llm/cpp/model_rpc/proto/model_rpc_service.grpc.pb.h"
 #include "rtp_llm/cpp/model_rpc/proto/model_rpc_service.pb.h"
@@ -15,7 +14,7 @@ namespace rtp_llm {
 
 class P2PConnectorServerCaller {
 public:
-    P2PConnectorServerCaller(const GptInitParameter& gpt_init_parameter);
+    P2PConnectorServerCaller(const std::vector<std::string>& worker_addrs);
     ~P2PConnectorServerCaller() = default;
 
 public:
@@ -61,7 +60,7 @@ public:
                                  int64_t            deadline_ms);
 
 private:
-    const GptInitParameter&     gpt_init_parameter_;
+    std::vector<std::string>    worker_addrs_;
     std::shared_ptr<RPCPool>    rpc_pool_;
     std::vector<TPWorkerInfoPB> tp_worker_infos_;
 };

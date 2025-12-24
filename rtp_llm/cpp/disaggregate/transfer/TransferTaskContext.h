@@ -25,11 +25,11 @@ public:
     void                                         addTask(const std::shared_ptr<LayerCacheBufferTask>& task);
     const std::shared_ptr<LayerCacheBufferTask>& getTask() const;
 
-    std::string                                                                   getUniqueKey() const;
-    std::vector<std::pair<BufferPtr, std::shared_ptr<transfer::BlockBufferInfo>>> getTcpBlockPair();
-    std::vector<std::pair<BufferPtr, std::shared_ptr<RemoteBuffer>>>              getRdmaBlockPair();
-    std::pair<std::string, uint32_t>                                              getServerRdmaInfo() const;
-    bool                                                                          isTimeout() const;
+    std::string                                                                     getUniqueKey() const;
+    std::vector<std::pair<BufferPtr, std::shared_ptr<::transfer::BlockBufferInfo>>> getTcpBlockPair();
+    std::vector<std::pair<BufferPtr, std::shared_ptr<RemoteBuffer>>>                getRdmaBlockPair();
+    std::pair<std::string, uint32_t>                                                getServerRdmaInfo() const;
+    bool                                                                            isTimeout() const;
 
     void run(bool success, const std::string& info);
 

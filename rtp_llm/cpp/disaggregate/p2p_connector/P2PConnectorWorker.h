@@ -1,0 +1,122 @@
+#pragma once
+
+#include "rtp_llm/cpp/cache/BatchKVCacheResource.h"
+#include "rtp_llm/cpp/cache/KVCacheAllocator.h"
+#include "rtp_llm/cpp/config/ConfigModules.h"
+#include "rtp_llm/cpp/config/ModelConfig.h"
+#include "rtp_llm/cpp/core/Event.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/AsymmetricTpUtil.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/ComputedLayerCacheBuffer.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorMetrics.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/PrefillWorkerLoadContext.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/StoreWaitContext.h"
+#include "rtp_llm/cpp/disaggregate/transfer/LayerCacheBuffer.h"
+#include "rtp_llm/cpp/disaggregate/transfer/LayerCacheBufferTask.h"
+#include "rtp_llm/cpp/disaggregate/transfer/TransferClient.h"
+#include "rtp_llm/cpp/disaggregate/transfer/TransferServer.h"
+#include "rtp_llm/cpp/model_rpc/TpBroadcastManager.h"
+#include "autil/LoopThread.h"
+#include <atomic>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <vector>
+
+namespace rtp_llm {
+
+class P2PConnectorWorker {
+public:
+    P2PConnectorWorker(const KVCacheConfig&                        cache_config,
+                       const CacheStoreConfig&                     cache_store_config,
+                       const ParallelismConfig&                    parallelism_config,
+                       const PDSepConfig&                          pd_sep_config,
+                       const ModelConfig&                          model_config,
+                       const std::shared_ptr<LayerBlockConvertor>& layer_block_convertor,
+                       const kmonitor::MetricsReporterPtr&         metrics_reporter);
+    ~P2PConnectorWorker();
+
+public:
+    bool init(int64_t store_wait_timeout_ms = 10 * 1000);
+
+public:
+    bool writeByLayer(int                                       layer_id,
+                      const std::shared_ptr<KVCacheResourceV1>& resource,
+                      int64_t                                   request_id,
+                      DeviceEventPtr                            event);
+
+    bool handleRead(int64_t                                              request_id,
+                    const std::string&                                   unique_key,
+                    int64_t                                              deadline_ms,
+                    const std::vector<std::pair<std::string, uint32_t>>& decode_transfer_servers);
+
+    bool read(int64_t                                               request_id,
+              const std::string&                                    unique_key,
+              int64_t                                               deadline_ms,
+              const std::vector<std::shared_ptr<LayerCacheBuffer>>& layer_cache_buffers);
+
+public:
+    // ================== 内部状态访问 ==================
+
+    std::shared_ptr<ComputedLayerCacheBufferStore> getComputedBuffersStore() const {
+        return computed_buffers_;
+    }
+
+    std::shared_ptr<PrefillWorkerLoadContextStore> getLoadContexts() const {
+        return load_contexts_;
+    }
+
+    void setStoreWaitTimeoutMs(int64_t store_wait_timeout_ms) {
+        store_wait_timeout_ms_ = store_wait_timeout_ms;
+    }
+
+private:
+    // Store wait 线程处理
+    void loopCheckProc();
+
+private:
+    // 配置
+    const KVCacheConfig&                        cache_config_;
+    const CacheStoreConfig&                     cache_store_config_;
+    const ParallelismConfig&                    parallelism_config_;
+    const PDSepConfig&                          pd_sep_config_;
+    const ModelConfig&                          model_config_;
+    const std::shared_ptr<LayerBlockConvertor>& layer_block_convertor_;
+    kmonitor::MetricsReporterPtr                metrics_reporter_;
+
+    // Prefill 端组件（发送数据）
+    std::shared_ptr<TransferClient>                transfer_client_;
+    std::shared_ptr<AsymmetricTpUtil>              asymmetric_tp_util_;
+    std::shared_ptr<ComputedLayerCacheBufferStore> computed_buffers_;
+    std::shared_ptr<PrefillWorkerLoadContextStore> load_contexts_;
+    int64_t                                        store_wait_timeout_ms_ = 10 * 1000;
+
+    // Store wait 检查器（Prefill 端）
+    std::shared_ptr<StoreWaitContextChecker> store_wait_context_checker_;
+
+    // 清理线程（定期清理过期缓存和上报状态）
+    autil::LoopThreadPtr cleanup_thread_;
+
+    // Decode 端组件（接收数据）
+    std::shared_ptr<TransferServer>            transfer_server_;
+    std::shared_ptr<LayerCacheBufferTaskStore> layer_cache_buffer_task_store_;
+};
+
+/// @brief P2PConnectorWorker 的 TP 广播回调类
+/// 合并了 P2PConnectorServerWorkerTPCallback 和 P2PConnectorClientWorkerTPCallback
+class P2PConnectorWorkerTPCallback: public TPBroadcastService::Callback {
+public:
+    P2PConnectorWorkerTPCallback(const std::shared_ptr<P2PConnectorWorker>& worker);
+    ~P2PConnectorWorkerTPCallback() = default;
+
+public:
+    bool         shouldProcess(const BroadcastTpRequestPB& request) override;
+    grpc::Status onBroadcastTp(const BroadcastTpRequestPB& request, BroadcastTpResponsePB& response) override;
+
+private:
+    std::shared_ptr<P2PConnectorWorker> worker_;
+};
+
+}  // namespace rtp_llm

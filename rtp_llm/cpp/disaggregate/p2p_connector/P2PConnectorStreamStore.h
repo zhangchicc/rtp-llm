@@ -15,10 +15,10 @@ namespace rtp_llm {
 // 实现思路: 当请求中有 pd_sep_unique_key 时, 认为这个 stream 会有一个对应的 P2PConnector load的请求, 用来保证
 // p2p_connector 拉取过程中对应的资源不会释放 当 prefill 请求完成时, 需要将 stream 从 store 中移除, 如果超时未完成,
 // 需要将 stream 移除, 并返回错误 unique_key 是 目前由 decode 生成, 后续可能由 master 统一生成保证全局唯一
-class PrefillConnectorStreamStore {
+class P2PConnectorStreamStore {
 public:
-    PrefillConnectorStreamStore(const kmonitor::MetricsReporterPtr& metrics_reporter);
-    ~PrefillConnectorStreamStore();
+    P2PConnectorStreamStore(const kmonitor::MetricsReporterPtr& metrics_reporter);
+    ~P2PConnectorStreamStore();
 
 public:
     bool init();

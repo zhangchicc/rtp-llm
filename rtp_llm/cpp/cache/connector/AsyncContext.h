@@ -7,6 +7,12 @@ namespace rtp_llm {
 
 class KVCacheResourceV1;
 
+enum class ConnectorType {
+    Memory = 0,
+    Remote = 1,
+    P2P    = 2
+};
+
 class AsyncContext {
 public:
     AsyncContext()          = default;
@@ -15,6 +21,14 @@ public:
 public:
     virtual bool done() const    = 0;
     virtual bool success() const = 0;
+};
+
+class AsyncMatchContext: public AsyncContext {
+public:
+    AsyncMatchContext()                             = default;
+    ~AsyncMatchContext() override                   = default;
+    virtual size_t        matchedBlockCount() const = 0;
+    virtual ConnectorType connectorType() const     = 0;
 };
 
 class FusedAsyncContext: public AsyncContext {

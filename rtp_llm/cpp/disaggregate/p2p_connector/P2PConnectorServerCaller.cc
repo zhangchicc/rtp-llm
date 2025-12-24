@@ -8,8 +8,8 @@
 
 namespace rtp_llm {
 
-P2PConnectorServerCaller::P2PConnectorServerCaller(const GptInitParameter& gpt_init_parameter):
-    gpt_init_parameter_(gpt_init_parameter) {
+P2PConnectorServerCaller::P2PConnectorServerCaller(const std::vector<std::string>& worker_addrs):
+    worker_addrs_(worker_addrs) {
     rpc_pool_ = std::make_shared<RPCPool>();
     if (!rpc_pool_) {
         RTP_LLM_LOG_ERROR("P2PConnectorServerCaller init failed: rpc_pool is null");
@@ -17,7 +17,7 @@ P2PConnectorServerCaller::P2PConnectorServerCaller(const GptInitParameter& gpt_i
     }
 
     // 解析 worker_addrs 并构建 tp_worker_infos_
-    for (const auto& worker_addr : gpt_init_parameter_.worker_addrs_) {
+    for (const auto& worker_addr : worker_addrs_) {
         auto ip_parts = autil::StringUtil::split(worker_addr, ":");
         if (ip_parts.size() != 3) {
             RTP_LLM_FAIL("P2PConnectorServerCaller: invalid worker addr format [%s], expected ip:cache_store_port",

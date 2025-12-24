@@ -487,6 +487,10 @@ public:
         return generate_input_->generate_config->enable_memory_block_cache;
     }
 
+    int64_t deadlineUs() const {
+        return generate_input_->generate_config->timeout_ms * 1000 + begin_time_us_;
+    }
+
     bool asyncLoadCache();
     bool loadCacheDone() const;
     bool loadingCache() const;

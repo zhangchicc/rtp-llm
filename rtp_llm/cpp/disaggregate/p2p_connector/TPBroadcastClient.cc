@@ -17,7 +17,7 @@ bool TPBroadcastClient::init() {
         RTP_LLM_LOG_ERROR("TPBroadcastClient init failed: rpc_pool_ is null");
         return false;
     }
-    tp_broadcast_manager_ = std::make_shared<TpBroadcastManager>(rpc_pool_, worker_addrs_);
+    tp_broadcast_manager_ = std::make_shared<TpBroadcastManager>(worker_addrs_);
     if (!tp_broadcast_manager_->init()) {
         RTP_LLM_LOG_ERROR("TPBroadcastClient init failed: tp_broadcast_manager_ init failed");
         return false;
@@ -33,29 +33,29 @@ TPBroadcastClient::broadcast(int64_t                                            
                              const std::vector<std::pair<std::string, uint32_t>>&  decode_transfer_servers,
                              const std::string&                                    unique_key,
                              int64_t                                               deadline_ms,
-                             int64_t                                               timeout_ms,
-                             bool                                                  is_buffer_ready) {
+                             P2PConnectorBroadcastType                             type) {
     // 构建 BroadcastTpRequestPB
-    std::vector<BroadcastTpRequestPB> requests;
-    size_t                            worker_num = tp_broadcast_manager_->workerNum();
+    std::vector<std::shared_ptr<BroadcastTpRequestPB>> requests;
+    size_t                                             worker_num = tp_broadcast_manager_->workerNum();
     requests.reserve(worker_num);
 
     for (size_t i = 0; i < worker_num; ++i) {
-        BroadcastTpRequestPB request;
-        genBroadcastRequest(request, request_id, layer_cache_buffers, decode_transfer_servers, unique_key, deadline_ms);
+        auto request = std::make_shared<BroadcastTpRequestPB>();
+        genBroadcastRequest(
+            *request, request_id, layer_cache_buffers, decode_transfer_servers, unique_key, deadline_ms, type);
         requests.push_back(request);
     }
 
     // 执行广播
-    if (timeout_ms == 0) {
-        //! broadcast不应该超时, 如果超时会导致程序崩溃, workers 需要自己处理超时逻辑. 10s的额外等待时间, 确保workers
-        //! 可以正常关闭.
-        timeout_ms =
-            deadline_ms - currentTimeMs() + extra_wait_time_ms_;  // 超时时间 = 截止时间 - 当前时间 + 额外等待时间
+    auto timeout_ms = deadline_ms - currentTimeMs() + extra_wait_time_ms_;
+    if (timeout_ms <= 0) {
+        RTP_LLM_LOG_WARNING("broadcast timeout_ms: %ld <= 0, deadline_ms: %ld current_time_ms: %ld",
+                            timeout_ms,
+                            deadline_ms,
+                            currentTimeMs());
+        return nullptr;
     }
 
-    RTP_LLM_LOG_INFO(
-        "broadcast: timeout_ms: %d deadline_ms: %lld current_time_ms: %lld", timeout_ms, deadline_ms, currentTimeMs());
     auto result = tp_broadcast_manager_->broadcast(requests, timeout_ms);
     if (!result) {
         RTP_LLM_LOG_WARNING("broadcast failed, cannot create broadcast result");
@@ -72,7 +72,7 @@ void TPBroadcastClient::genBroadcastRequest(
     const std::vector<std::pair<std::string, uint32_t>>&  decode_transfer_servers,
     const std::string&                                    unique_key,
     int64_t                                               deadline_ms,
-    bool                                                  is_buffer_ready) {
+    P2PConnectorBroadcastType                             type) {
     auto p2p_request = request.mutable_p2p_request();
 
     // 设置 layer_blocks
@@ -96,7 +96,7 @@ void TPBroadcastClient::genBroadcastRequest(
     p2p_request->set_request_id(request_id);
     p2p_request->set_is_cancel(false);
     p2p_request->set_deadline_ms(deadline_ms);
-    p2p_request->set_is_buffer_ready(is_buffer_ready);
+    p2p_request->set_type(type);
 }
 
 void TPBroadcastClient::cancel(const std::shared_ptr<Result>& result, int64_t timeout_ms) {
@@ -106,13 +106,13 @@ void TPBroadcastClient::cancel(const std::shared_ptr<Result>& result, int64_t ti
     }
 
     // 构建取消请求
-    std::vector<BroadcastTpRequestPB> requests;
-    size_t                            worker_num = tp_broadcast_manager_->workerNum();
+    std::vector<std::shared_ptr<BroadcastTpRequestPB>> requests;
+    size_t                                             worker_num = tp_broadcast_manager_->workerNum();
     requests.reserve(worker_num);
 
     for (size_t i = 0; i < worker_num; ++i) {
-        BroadcastTpRequestPB request;
-        genCancelRequest(request, result->uniqueKey());
+        auto request = std::make_shared<BroadcastTpRequestPB>();
+        genCancelRequest(*request, result->uniqueKey());
         requests.push_back(request);
     }
 
@@ -123,7 +123,7 @@ void TPBroadcastClient::cancel(const std::shared_ptr<Result>& result, int64_t ti
     }
 
     // 等待所有 RANK 完成取消
-    cancel_result->waitDone();
+    cancel_result->waitDone(timeout_ms + extra_wait_time_ms_);
     if (!cancel_result->success()) {
         // 大概率某个rank挂了, cancel 处理应该快速响应.
         RTP_LLM_FAIL("TPBroadcastClient cancel broadcast failed, not all ranks succeeded");
@@ -162,6 +162,10 @@ void TPBroadcastClient::Result::checkDone() {
     if (tp_broadcast_result_->done()) {
         total_cost_time_us_ = currentTimeUs() - start_time_us_;
     }
+}
+
+void TPBroadcastClient::setExtraWaitTimeMs(int64_t extra_wait_time_ms) {
+    extra_wait_time_ms_ = extra_wait_time_ms;
 }
 
 }  // namespace rtp_llm

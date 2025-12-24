@@ -35,6 +35,10 @@ public:
         return request_id_;
     }
 
+    const std::set<int>& getNeedTransferIds() const {
+        return need_transfer_ids_;
+    }
+
 private:
     int64_t     request_id_;
     std::string unique_key_;

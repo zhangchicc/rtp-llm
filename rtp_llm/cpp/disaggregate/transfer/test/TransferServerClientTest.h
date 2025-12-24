@@ -24,6 +24,21 @@ public:
     std::vector<BufferPtr>
     convertIndexToBuffer(int layer_id, int block_id, int partition_count = 1, int partition_id = 0) const override;
 
+    // 获取所有存储的 buffer
+    std::vector<std::pair<BufferPtr, size_t>> getAllBuffers() const {
+        std::vector<std::pair<BufferPtr, size_t>> result;
+        for (const auto& [layer_id, block_map] : buffer_map_) {
+            for (const auto& [block_id, buffers] : block_map) {
+                for (const auto& buffer : buffers) {
+                    if (buffer) {
+                        result.emplace_back(buffer, buffer->size());
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
 private:
     std::unordered_map<int, std::unordered_map<int, std::vector<BufferPtr>>> buffer_map_;
     DeviceBase*                                                              device_ = nullptr;

@@ -83,10 +83,12 @@ bool TransferClient::init(bool use_rdma,
     RTP_LLM_LOG_INFO("create tcp client success");
 
     if (use_rdma) {
-        rdma_memory_manager_ = createRdmaMemoryManager();
         if (!rdma_memory_manager_) {
-            RTP_LLM_LOG_WARNING("create rdma memory manager failed");
-            return false;
+            rdma_memory_manager_ = createRdmaMemoryManager();
+            if (!rdma_memory_manager_) {
+                RTP_LLM_LOG_WARNING("create rdma memory manager failed");
+                return false;
+            }
         }
         rdma_listen_port_ = autil::NetUtil::randomPort();
         rdma_ip_          = autil::NetUtil::getBindIp();

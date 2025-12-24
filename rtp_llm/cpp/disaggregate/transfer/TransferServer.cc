@@ -5,8 +5,11 @@
 namespace rtp_llm {
 
 TransferServer::TransferServer(const std::shared_ptr<LayerBlockConvertor>& layer_block_convector,
+                               const std::shared_ptr<IRdmaMemoryManager>&  rdma_memory_manager,
                                const kmonitor::MetricsReporterPtr&         metrics_reporter):
-    layer_block_convector_(layer_block_convector), metrics_reporter_(metrics_reporter) {
+    layer_block_convector_(layer_block_convector),
+    rdma_memory_manager_(rdma_memory_manager),
+    metrics_reporter_(metrics_reporter) {
     layer_cache_buffer_task_store_ = std::make_shared<LayerCacheBufferTaskStore>();
 }
 
@@ -40,10 +43,12 @@ bool TransferServer::init(bool     use_rdma,
     }
 
     if (use_rdma) {
-        rdma_memory_manager_ = createRdmaMemoryManager();
-        if (rdma_memory_manager_ == nullptr) {
-            RTP_LLM_LOG_WARNING("create rdma memory manager failed");
-            return false;
+        if (!rdma_memory_manager_) {
+            rdma_memory_manager_ = createRdmaMemoryManager();
+            if (rdma_memory_manager_ == nullptr) {
+                RTP_LLM_LOG_WARNING("create rdma memory manager failed");
+                return false;
+            }
         }
         rdma_client_ = createRdmaClient(rdma_memory_manager_,
                                         rdma_io_thread_count,
