@@ -6,6 +6,7 @@
 namespace rtp_llm {
 
 class KVCacheResourceV1;
+struct KVCacheConnectorMeta;
 
 enum class ConnectorType {
     Memory = 0,
@@ -50,8 +51,9 @@ private:
 
 class FusedAsyncReadContext: public AsyncContext {
 public:
-    FusedAsyncReadContext(const std::shared_ptr<FusedAsyncContext>& fused_match_context,
-                          const std::shared_ptr<KVCacheResourceV1>& resource);
+    FusedAsyncReadContext(const std::shared_ptr<FusedAsyncContext>&    fused_match_context,
+                          const std::shared_ptr<KVCacheResourceV1>&    resource,
+                          const std::shared_ptr<KVCacheConnectorMeta>& meta);
     ~FusedAsyncReadContext() override;
 
 public:
@@ -67,11 +69,15 @@ public:
     const std::shared_ptr<KVCacheResourceV1>& resource() const {
         return resource_;
     }
+    const std::shared_ptr<KVCacheConnectorMeta>& meta() const {
+        return meta_;
+    }
 
 private:
-    std::shared_ptr<FusedAsyncContext> fused_match_context_;
-    std::shared_ptr<FusedAsyncContext> fused_read_context_;
-    std::shared_ptr<KVCacheResourceV1> resource_;
+    std::shared_ptr<FusedAsyncContext>    fused_match_context_;
+    std::shared_ptr<FusedAsyncContext>    fused_read_context_;
+    std::shared_ptr<KVCacheResourceV1>    resource_;
+    std::shared_ptr<KVCacheConnectorMeta> meta_;
 };
 
 }  // namespace rtp_llm

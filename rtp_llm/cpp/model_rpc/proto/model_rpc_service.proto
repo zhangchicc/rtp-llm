@@ -94,6 +94,7 @@ message GenerateConfigPB {
     google.protobuf.StringValue trace_id = 50;
     bool return_all_hidden_states = 51;
     bool enable_memory_block_cache = 52;
+    string unique_key = 53;
 }
 
 message MMPreprocessConfigPB {
@@ -433,6 +434,7 @@ message P2PConnectorStartLoadRequestPB {
 
 message P2PConnectorStartLoadResponsePB {
     bool success = 1;
+    int64 first_generate_token_id = 2;
 }
 
 message BroadcastTpRequestPB {

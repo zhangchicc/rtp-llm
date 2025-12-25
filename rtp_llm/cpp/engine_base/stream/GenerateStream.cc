@@ -1116,4 +1116,14 @@ bool GenerateStream::asyncStoreCache() {
     return stream_cache_resource_->asyncStoreCache();
 }
 
+std::pair<std::string, uint32_t> GenerateStream::prefillAddr() const {
+    for (const auto& role_addr : generate_input_->generate_config->role_addrs) {
+        if (role_addr.role == RoleType::PREFILL) {
+            return std::make_pair(role_addr.ip, role_addr.grpc_port);
+        }
+    }
+
+    return std::make_pair("", 0);
+}
+
 }  // namespace rtp_llm

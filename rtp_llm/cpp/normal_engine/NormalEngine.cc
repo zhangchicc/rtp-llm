@@ -32,6 +32,7 @@ NormalEngine::NormalEngine(const EngineInitParams& params):
     ffn_disaggregate_config(params.ffn_disaggregate_config),
     model_specific_config(params.model_specific_config),
     sp_config(params.sp_config),
+    cache_store_config(params.cache_store_config),
     metrics_reporter_(params.metrics_reporter),
     profiler_step_(0),
     gen_timeline_sync_(params.profiling_debug_logging_config.gen_timeline_sync) {
@@ -179,8 +180,16 @@ WarmUpResult NormalEngine::decodeWarmUp(const EngineInitParams& params) {
     cache_config.block_num          = 5;
     ParallelismConfig temp_parallelism_config;
     RuntimeConfig     temp_runtime_config;
-    auto              cache_manager = make_shared<KVCacheManager>(
-        cache_config, device_, true, nullptr, KVCacheConfig{}, temp_parallelism_config, temp_runtime_config);
+    auto              cache_manager = make_shared<KVCacheManager>(cache_config,
+                                                     device_,
+                                                     true,
+                                                     nullptr,
+                                                     KVCacheConfig{},
+                                                     temp_parallelism_config,
+                                                     temp_runtime_config,
+                                                     cache_store_config,
+                                                     pd_sep_config,
+                                                     model_config_);
     if (!cache_manager->init()) {
         RTP_LLM_FAIL("init kv cache manager failed in decodeWarmUp");
     }
@@ -210,8 +219,16 @@ void NormalEngine::initCacheManager(std::optional<WarmUpResult> warm_up_result) 
         model_config_, parallelism_config, runtime_config, kv_cache_config, warm_up_result);
     RTP_LLM_LOG_INFO(
         "create cache manager with block nums %d, block size %ld KB", result.block_num, result.block_size / 1024);
-    resource_context_.cache_manager = make_shared<KVCacheManager>(
-        result, device_, false, metrics_reporter_, kv_cache_config, parallelism_config, runtime_config);
+    resource_context_.cache_manager = make_shared<KVCacheManager>(result,
+                                                                  device_,
+                                                                  false,
+                                                                  metrics_reporter_,
+                                                                  kv_cache_config,
+                                                                  parallelism_config,
+                                                                  runtime_config,
+                                                                  cache_store_config,
+                                                                  pd_sep_config,
+                                                                  model_config_);
     if (!resource_context_.cache_manager->init()) {
         RTP_LLM_FAIL("init kv cache manager failed");
     }

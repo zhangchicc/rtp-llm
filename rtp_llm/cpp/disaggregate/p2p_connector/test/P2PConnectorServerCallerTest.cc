@@ -6,8 +6,31 @@
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorServerCaller.h"
 #include "rtp_llm/cpp/utils/TimeUtil.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/test/TestRpcServer.h"
+#include "rtp_llm/cpp/engine_base/stream/CompleteTokenIds.h"
+#include "rtp_llm/cpp/engine_base/stream/GenerateTypes.h"
+#include "rtp_llm/cpp/devices/DeviceFactory.h"
 
 namespace rtp_llm {
+
+// 辅助函数：创建 CompleteTokenIds 用于测试
+CompleteTokenIdsPtr createTestCompleteTokenIds(int batch_size, int seq_length) {
+    auto device = DeviceFactory::getDevice(DeviceType::Cpu);
+    // CompleteTokenIds(device, batch_size, max_batch_size, max_seq_len, seq_size_per_block)
+    auto complete_token_ids = std::make_shared<CompleteTokenIds>(device, batch_size, batch_size, seq_length + 100, 8);
+
+    auto input_ids = device->allocateBuffer(
+        {rtp_llm::DataType::TYPE_INT32, {(size_t)seq_length}, rtp_llm::AllocationType::HOST}, {});
+    // 初始化输入 token ids
+    int* data = input_ids->data<int>();
+    for (int i = 0; i < seq_length; i++) {
+        data[i] = i + 1;  // token ids: 1, 2, 3, ...
+    }
+
+    auto generate_input       = std::make_shared<GenerateInput>();
+    generate_input->input_ids = input_ids;
+    complete_token_ids->init(generate_input);
+    return complete_token_ids;
+}
 
 class P2PConnectorServerCallerTest: public ::testing::Test {
 protected:
@@ -60,7 +83,7 @@ TEST_F(P2PConnectorServerCallerTest, Load_ReturnNotNull_RequestSuccess) {
     uint32_t    prefill_port = static_cast<uint32_t>(server_->listenPort());
 
     // 执行 load
-    auto result = client_->load(request_id, prefill_ip, prefill_port, unique_key, deadline_ms);
+    auto result = client_->load(request_id, prefill_ip, prefill_port, unique_key, deadline_ms, nullptr);
     ASSERT_NE(result, nullptr);
     EXPECT_EQ(result->request_id_, request_id);
     EXPECT_EQ(result->request.unique_key(), unique_key);
@@ -87,7 +110,7 @@ TEST_F(P2PConnectorServerCallerTest, Load_ReturnNotNull_RequestFailed) {
     uint32_t    prefill_port = static_cast<uint32_t>(server_->listenPort());
 
     // 执行 load
-    auto result = client_->load(request_id, prefill_ip, prefill_port, unique_key, deadline_ms);
+    auto result = client_->load(request_id, prefill_ip, prefill_port, unique_key, deadline_ms, nullptr);
     ASSERT_NE(result, nullptr);
 
     // 等待完成
@@ -112,7 +135,7 @@ TEST_F(P2PConnectorServerCallerTest, Load_ReturnNotNull_Timeout) {
     uint32_t    prefill_port = static_cast<uint32_t>(server_->listenPort());
 
     // 执行 load
-    auto result = client_->load(request_id, prefill_ip, prefill_port, unique_key, deadline_ms);
+    auto result = client_->load(request_id, prefill_ip, prefill_port, unique_key, deadline_ms, nullptr);
     ASSERT_NE(result, nullptr);
 
     // 等待完成，应该会因为超时返回 false
@@ -132,7 +155,7 @@ TEST_F(P2PConnectorServerCallerTest, Load_ReturnNull_InvalidServerAddr) {
     uint32_t    prefill_port = 99999;  // 无效端口
 
     // 执行 load，应该返回 nullptr（因为无法连接）
-    auto result = client_->load(request_id, prefill_ip, prefill_port, unique_key, deadline_ms);
+    auto result = client_->load(request_id, prefill_ip, prefill_port, unique_key, deadline_ms, nullptr);
     // 注意：由于 RPCPool 的行为，可能返回非空但 waitDone 会失败
     // 这里主要测试接口调用不会崩溃
     if (result != nullptr) {
@@ -152,7 +175,7 @@ TEST_F(P2PConnectorServerCallerTest, Load_ReturnNotNull_RpcStatusFailed) {
     uint32_t    prefill_port = static_cast<uint32_t>(server_->listenPort());
 
     // 执行 load
-    auto result = client_->load(request_id, prefill_ip, prefill_port, unique_key, deadline_ms);
+    auto result = client_->load(request_id, prefill_ip, prefill_port, unique_key, deadline_ms, nullptr);
     ASSERT_NE(result, nullptr);
 
     // 等待完成
@@ -178,7 +201,7 @@ TEST_F(P2PConnectorServerCallerTest, CheckDone_NotDoneInitially) {
     std::string prefill_ip   = "127.0.0.1";
     uint32_t    prefill_port = static_cast<uint32_t>(server_->listenPort());
 
-    auto result = client_->load(request_id, prefill_ip, prefill_port, unique_key, deadline_ms);
+    auto result = client_->load(request_id, prefill_ip, prefill_port, unique_key, deadline_ms, nullptr);
     ASSERT_NE(result, nullptr);
 
     // 初始状态应该是 not done
@@ -202,7 +225,7 @@ TEST_F(P2PConnectorServerCallerTest, CheckDone_TotalCostTimeUs) {
     std::string prefill_ip   = "127.0.0.1";
     uint32_t    prefill_port = static_cast<uint32_t>(server_->listenPort());
 
-    auto result = client_->load(request_id, prefill_ip, prefill_port, unique_key, deadline_ms);
+    auto result = client_->load(request_id, prefill_ip, prefill_port, unique_key, deadline_ms, nullptr);
     ASSERT_NE(result, nullptr);
 
     waitDone(result);
@@ -211,6 +234,45 @@ TEST_F(P2PConnectorServerCallerTest, CheckDone_TotalCostTimeUs) {
     // 验证总耗时被记录
     int64_t cost_time_us = result->totalCostTimeUs();
     EXPECT_GT(cost_time_us, 0);
+}
+
+// ---------------------------- complete_token_ids update ----------------------------
+
+TEST_F(P2PConnectorServerCallerTest, CheckDone_CompleteTokenIdsUpdate) {
+    // 设置服务器返回特定的 first_generate_token_id
+    int64_t expected_token_id = 99999;
+    server_->service()->setFirstGenerateTokenId(expected_token_id);
+
+    std::string unique_key   = "test_token_ids_update";
+    int64_t     request_id   = 3001;
+    int64_t     deadline_ms  = currentTimeMs() + 5000;
+    std::string prefill_ip   = "127.0.0.1";
+    uint32_t    prefill_port = static_cast<uint32_t>(server_->listenPort());
+
+    // 创建 CompleteTokenIds，初始长度为 10
+    int  initial_seq_length = 10;
+    auto complete_token_ids = createTestCompleteTokenIds(1, initial_seq_length);
+    ASSERT_NE(complete_token_ids, nullptr);
+    EXPECT_EQ(complete_token_ids->seqLength(), initial_seq_length);
+
+    // 执行 load
+    auto result = client_->load(request_id, prefill_ip, prefill_port, unique_key, deadline_ms, complete_token_ids);
+    ASSERT_NE(result, nullptr);
+
+    // 等待完成
+    bool success = waitDone(result);
+    EXPECT_TRUE(success);
+    EXPECT_TRUE(result->done());
+    EXPECT_TRUE(result->success());
+
+    // 验证 complete_token_ids 被更新
+    // update 方法应该添加了一个新 token，所以长度应该 +1
+    EXPECT_EQ(complete_token_ids->seqLength(), initial_seq_length + 1);
+
+    // 验证新 token 的值是 first_generate_token_id
+    auto token_vec = complete_token_ids->completeTokenIdsVec(0);
+    ASSERT_GT(token_vec.size(), static_cast<size_t>(initial_seq_length));
+    EXPECT_EQ(token_vec[initial_seq_length], static_cast<int>(expected_token_id));
 }
 
 }  // namespace rtp_llm

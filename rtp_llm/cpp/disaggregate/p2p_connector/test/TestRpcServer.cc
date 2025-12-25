@@ -47,6 +47,7 @@ namespace rtp_llm {
 
     // 设置响应
     response->set_success(start_load_response_success_);
+    response->set_first_generate_token_id(first_generate_token_id_);
 
     return rpc_response_status_;
 }
@@ -65,6 +66,10 @@ void TestRpcService::setStartLoadResponseSuccess(bool success) {
 
 void TestRpcService::setRpcResponseStatus(const ::grpc::Status& status) {
     rpc_response_status_ = status;
+}
+
+void TestRpcService::setFirstGenerateTokenId(int64_t token_id) {
+    first_generate_token_id_ = token_id;
 }
 
 int TestRpcService::getBroadcastTpCallCount() const {

@@ -55,7 +55,8 @@ P2PConnectorScheduler::asyncRead(const std::shared_ptr<KVCacheResourceV1>& resou
                                  const std::string&                        unique_key,
                                  const std::string&                        prefill_ip,
                                  uint32_t                                  prefill_port,
-                                 int64_t                                   deadline_ms) {
+                                 int64_t                                   deadline_ms,
+                                 const std::shared_ptr<CompleteTokenIds>&  complete_token_ids) {
     auto collector = std::make_shared<P2PConnectorClientSchedulerMetricsCollector>(metrics_reporter_);
     if (!resource) {
         RTP_LLM_LOG_WARNING("P2PConnectorScheduler asyncRead: resource is null");
@@ -72,7 +73,8 @@ P2PConnectorScheduler::asyncRead(const std::shared_ptr<KVCacheResourceV1>& resou
     }
 
     // call prefill server to trigger write (higher failure probability, execute first)
-    auto server_call_result = server_caller_->load(request_id, prefill_ip, prefill_port, unique_key, deadline_ms);
+    auto server_call_result =
+        server_caller_->load(request_id, prefill_ip, prefill_port, unique_key, deadline_ms, complete_token_ids);
     if (!server_call_result) {
         RTP_LLM_LOG_WARNING("P2PConnectorScheduler asyncRead: server_caller load failed");
         collector->success = false;

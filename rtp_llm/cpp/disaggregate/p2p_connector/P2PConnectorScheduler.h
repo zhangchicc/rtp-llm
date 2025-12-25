@@ -23,12 +23,14 @@ public:
 
 public:
     // Decode side: async read from prefill
-    std::shared_ptr<P2PConnectorAsyncReadContext> asyncRead(const std::shared_ptr<KVCacheResourceV1>& resource,
-                                                            int64_t                                   request_id,
-                                                            const std::string&                        unique_key,
-                                                            const std::string&                        prefill_ip,
-                                                            uint32_t                                  prefill_port,
-                                                            int64_t                                   deadline_ms);
+    std::shared_ptr<P2PConnectorAsyncReadContext>
+    asyncRead(const std::shared_ptr<KVCacheResourceV1>& resource,
+              int64_t                                   request_id,
+              const std::string&                        unique_key,
+              const std::string&                        prefill_ip,
+              uint32_t                                  prefill_port,
+              int64_t                                   deadline_ms,
+              const std::shared_ptr<CompleteTokenIds>&  complete_token_ids);
 
     // Prefill side: handle read request from decode (sync)
     grpc::Status handleRead(const std::shared_ptr<KVCacheResourceV1>&            resource,

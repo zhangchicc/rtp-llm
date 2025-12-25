@@ -3,30 +3,11 @@
 #include "rtp_llm/cpp/utils/HashUtil.h"
 #include "rtp_llm/cpp/core/BufferHelper.h"
 #include "rtp_llm/cpp/cache/types.h"
-#include "rtp_llm/cpp/cache/connector/KVCacheConnectorReadWriteContext.h"
 #include "rtp_llm/cpp/engine_base/stream/CompleteTokenIds.h"
 
 using namespace std;
 
 namespace rtp_llm {
-
-class KVCacheConnectorReadWriteContextImpl: public KVCacheConnectorReadWriteContext {
-public:
-    KVCacheConnectorReadWriteContextImpl(const std::shared_ptr<StreamCacheResource>& stream_cache_resource):
-        stream_cache_resource_(stream_cache_resource) {}
-    ~KVCacheConnectorReadWriteContextImpl() override = default;
-
-public:
-    const KVCacheResourceV1& kvCacheResource() const override {
-        return stream_cache_resource_->kvCache().cacheResource(0);
-    }
-    bool enableMemoryCache() const override {
-        return stream_cache_resource_->enableMemoryBlockCache();
-    }
-
-private:
-    std::shared_ptr<StreamCacheResource> stream_cache_resource_;
-};
 
 void StreamCacheResource::init(int batch_size) {
     batch_resource_->resetBatchSize(batch_size);
@@ -206,14 +187,23 @@ bool StreamCacheResource::enableMemoryBlockCache() const {
 }
 
 bool StreamCacheResource::asyncLoadCache() {
-    if (!enableMemoryBlockCache()) {
-        return false;
-    }
     if (load_cache_context_) {
         return true;
     }
-    auto connector_context = std::make_shared<KVCacheConnectorReadWriteContextImpl>(shared_from_this());
-    load_cache_context_    = resource_context_.cache_manager->asyncLoadCache(connector_context);
+    auto meta                = std::make_shared<KVCacheConnectorMeta>();
+    meta->request_id         = stream_->streamId();
+    meta->unique_key         = stream_->uniqueKey();
+    meta->prefill_ip         = stream_->prefillAddr().first;
+    meta->prefill_port       = stream_->prefillAddr().second;
+    meta->deadline_ms        = stream_->deadlineUs();
+    meta->complete_token_ids = stream_->completeTokenIdsPtr();
+
+    KVCacheConnectorControlParams control_params;
+    control_params.enable_memory_cache = enableMemoryBlockCache();
+
+    auto& resource = batch_resource_->cacheResource(0);
+
+    load_cache_context_ = resource_context_.cache_manager->asyncLoadCache(resource, meta, control_params);
     return load_cache_context_ != nullptr;
 }
 
@@ -241,14 +231,19 @@ bool StreamCacheResource::loadCacheDone() {
 }
 
 bool StreamCacheResource::asyncStoreCache() {
-    if (!enableMemoryBlockCache()) {
-        return false;
-    }
     if (store_cache_context_) {
         return true;
     }
-    auto connector_context = std::make_shared<KVCacheConnectorReadWriteContextImpl>(shared_from_this());
-    store_cache_context_   = resource_context_.cache_manager->asyncStoreCache(connector_context);
+    auto meta         = std::make_shared<KVCacheConnectorMeta>();
+    meta->request_id  = stream_->streamId();
+    meta->deadline_ms = stream_->deadlineUs();
+
+    KVCacheConnectorControlParams control_params;
+    control_params.enable_memory_cache = enableMemoryBlockCache();
+
+    auto& resource = batch_resource_->cacheResource(0);
+
+    store_cache_context_ = resource_context_.cache_manager->asyncStoreCache(resource, meta, control_params);
     return store_cache_context_ != nullptr;
 }
 

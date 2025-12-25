@@ -190,30 +190,4 @@ private:
     std::shared_ptr<RPCPool> rpc_pool_;
 };
 
-class TPBroadcastService {
-public:
-    class Callback {
-    public:
-        virtual bool         shouldProcess(const BroadcastTpRequestPB& request)                                  = 0;
-        virtual grpc::Status onBroadcastTp(const BroadcastTpRequestPB& request, BroadcastTpResponsePB& response) = 0;
-    };
-    void registerCallback(std::shared_ptr<Callback> callback) {
-        callbacks_.push_back(callback);
-    }
-
-    grpc::Status broadcast(::grpc::ServerContext*        context,
-                           const ::BroadcastTpRequestPB* request,
-                           ::BroadcastTpResponsePB*      response) {
-        for (const auto& callback : callbacks_) {
-            if (callback->shouldProcess(*request)) {
-                return callback->onBroadcastTp(*request, *response);
-            }
-        }
-        return grpc::Status(grpc::StatusCode::NOT_FOUND, "callback not found");
-    }
-
-private:
-    std::vector<std::shared_ptr<Callback>> callbacks_;
-};
-
 }  // namespace rtp_llm

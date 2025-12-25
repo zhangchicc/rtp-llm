@@ -1,7 +1,6 @@
 #pragma once
 
 #include "rtp_llm/cpp/cache/BatchKVCacheResource.h"
-#include "rtp_llm/cpp/cache/KVCacheAllocator.h"
 #include "rtp_llm/cpp/config/ConfigModules.h"
 #include "rtp_llm/cpp/config/ModelConfig.h"
 #include "rtp_llm/cpp/core/Event.h"
@@ -102,21 +101,6 @@ private:
     // Decode 端组件（接收数据）
     std::shared_ptr<TransferServer>            transfer_server_;
     std::shared_ptr<LayerCacheBufferTaskStore> layer_cache_buffer_task_store_;
-};
-
-/// @brief P2PConnectorWorker 的 TP 广播回调类
-/// 合并了 P2PConnectorServerWorkerTPCallback 和 P2PConnectorClientWorkerTPCallback
-class P2PConnectorWorkerTPCallback: public TPBroadcastService::Callback {
-public:
-    P2PConnectorWorkerTPCallback(const std::shared_ptr<P2PConnectorWorker>& worker);
-    ~P2PConnectorWorkerTPCallback() = default;
-
-public:
-    bool         shouldProcess(const BroadcastTpRequestPB& request) override;
-    grpc::Status onBroadcastTp(const BroadcastTpRequestPB& request, BroadcastTpResponsePB& response) override;
-
-private:
-    std::shared_ptr<P2PConnectorWorker> worker_;
 };
 
 }  // namespace rtp_llm

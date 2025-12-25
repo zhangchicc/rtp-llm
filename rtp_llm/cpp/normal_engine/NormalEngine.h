@@ -34,11 +34,11 @@ public:
                                              preRunMode                            mode) override;
     absl::Status                      stop() override;
 
-    KVCacheInfo                     getCacheStatusInfo(int64_t latest_version, bool need_cache_keys) override;
-    absl::Status                    step();
-    absl::Status                    startLoop();
-    int64_t                         getLastScheduleTime() override;
-    void                            reportMetrics(RtpLLMEngineMetricsCollector collector) {
+    KVCacheInfo  getCacheStatusInfo(int64_t latest_version, bool need_cache_keys) override;
+    absl::Status step();
+    absl::Status startLoop();
+    int64_t      getLastScheduleTime() override;
+    void         reportMetrics(RtpLLMEngineMetricsCollector collector) {
         if (metrics_reporter_) {
             metrics_reporter_->report<RtpLLMEngineMetrics, RtpLLMEngineMetricsCollector>(nullptr, &collector);
         }
@@ -59,23 +59,24 @@ private:
     std::shared_ptr<GenerateInput>  makeFakeInput(size_t seq_len);
 
 private:
-    autil::ThreadPtr                loop_thread_;
-    std::atomic<bool>               running_{false};
-    std::unique_ptr<Executor>       executor_;
-    ModelConfig                     model_config_;
-    ParallelismConfig               parallelism_config;
-    RuntimeConfig                   runtime_config;
-    EPLBConfig                      eplb_config;
-    PDSepConfig                     pd_sep_config;
-    ProfilingDebugLoggingConfig     profiling_debug_logging_config;
-    KVCacheConfig                   kv_cache_config;
-    FfnDisAggregateConfig           ffn_disaggregate_config;
-    ModelSpecificConfig             model_specific_config;
-    SpeculativeExecutionConfig      sp_config;
-    kmonitor::MetricsReporterPtr    metrics_reporter_;
-    std::shared_ptr<CudaProfiler>   profiler_;
-    int                             profiler_step_     = 0;
-    bool                            gen_timeline_sync_ = false;
+    autil::ThreadPtr              loop_thread_;
+    std::atomic<bool>             running_{false};
+    std::unique_ptr<Executor>     executor_;
+    ModelConfig                   model_config_;
+    ParallelismConfig             parallelism_config;
+    RuntimeConfig                 runtime_config;
+    EPLBConfig                    eplb_config;
+    PDSepConfig                   pd_sep_config;
+    ProfilingDebugLoggingConfig   profiling_debug_logging_config;
+    KVCacheConfig                 kv_cache_config;
+    FfnDisAggregateConfig         ffn_disaggregate_config;
+    ModelSpecificConfig           model_specific_config;
+    SpeculativeExecutionConfig    sp_config;
+    CacheStoreConfig              cache_store_config;
+    kmonitor::MetricsReporterPtr  metrics_reporter_;
+    std::shared_ptr<CudaProfiler> profiler_;
+    int                           profiler_step_     = 0;
+    bool                          gen_timeline_sync_ = false;
 };
 
 }  // namespace rtp_llm

@@ -491,6 +491,11 @@ public:
         return generate_input_->generate_config->timeout_ms * 1000 + begin_time_us_;
     }
 
+    std::pair<std::string, uint32_t> prefillAddr() const;
+    std::string                      uniqueKey() const {
+        return generate_input_->generate_config->unique_key;
+    }
+
     bool asyncLoadCache();
     bool loadCacheDone() const;
     bool loadingCache() const;

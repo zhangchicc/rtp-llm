@@ -10,7 +10,6 @@
 #include "rtp_llm/cpp/disaggregate/p2p_connector/perftest/PrefillRpcServer.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorServer.h"
 #include "rtp_llm/cpp/cache/BatchKVCacheResource.h"
-#include "rtp_llm/cpp/normal_engine/NormalGenerateStream.h"
 
 namespace rtp_llm {
 
@@ -138,16 +137,13 @@ private:
     /// @brief Create a KVCacheResourceV1 with specified blocks
     std::shared_ptr<KVCacheResourceV1> createTestResource() const;
 
-    /// @brief Create a mock GenerateStream for testing
-    GenerateStreamPtr createMockStream(const std::string& unique_key) const;
-
     /// @brief Get decode transfer server addresses
     std::vector<std::pair<std::string, uint32_t>> getDecodeTransferServerAddrs() const;
 
     /// @brief Send async write requests at specified QPS
     void runLoadGenerator(std::atomic<bool>& running);
 
-    /// @brief Process a single request (writeByLayer on all ranks + addStream on rank 0)
+    /// @brief Process a single request (writeByLayer on all ranks + addResource on rank 0)
     void processRequest(int64_t request_id);
 
 private:

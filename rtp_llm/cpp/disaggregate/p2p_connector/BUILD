@@ -3,15 +3,15 @@ package(default_visibility = ["//rtp_llm/cpp/disaggregate/p2p_connector:__subpac
 cc_library(
     name = "layer_block_convertor",
     srcs = [
-        "LayerBlockConvertorImpl.cc",
     ],
     hdrs = [
         "LayerBlockConvertorImpl.h",
     ],
     deps = [
-        "//rtp_llm/cpp/cache:cache",
+        "//rtp_llm/cpp/cache:cache_core",
         "//rtp_llm/cpp/disaggregate/transfer:basic_types",
-    ]
+    ],
+    visibility = ["//visibility:public"],
 )
 
 cc_library(
@@ -55,7 +55,7 @@ cc_library(
         "//rtp_llm/cpp/model_rpc:tp_broadcast_manager",
         "//rtp_llm/cpp/model_rpc:model_rpc_pool",
         "//rtp_llm/cpp/disaggregate/transfer:basic_types",
-        "//rtp_llm/cpp/engine_base/stream:stream",
+        "//rtp_llm/cpp/engine_base/stream:complete_token_ids",
         "//rtp_llm/cpp/utils:time_util",
         "@havenask//aios/autil:thread",
     ],

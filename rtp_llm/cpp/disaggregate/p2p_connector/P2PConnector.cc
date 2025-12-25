@@ -1,6 +1,7 @@
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnector.h"
 
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorAsyncContext.h"
+#include "rtp_llm/cpp/disaggregate/transfer/LayerCacheBuffer.h"
 #include "rtp_llm/cpp/utils/Logger.h"
 #include "rtp_llm/cpp/utils/TimeUtil.h"
 #include <chrono>
@@ -63,117 +64,178 @@ bool P2PConnector::init() {
     return true;
 }
 
-std::shared_ptr<AsyncMatchContext> P2PConnector::asyncMatch(const std::shared_ptr<KVCacheResourceV1>& resource,
-                                                            const std::shared_ptr<Meta>&              meta) {
+std::shared_ptr<AsyncMatchContext> P2PConnector::asyncMatch(const std::shared_ptr<KVCacheResourceV1>&    resource,
+                                                            const std::shared_ptr<KVCacheConnectorMeta>& meta) {
     // P2PConnector 不需要 match，直接返回一个简单的 context
     return std::make_shared<P2PConnectorAsyncMatchContext>(resource);
 }
 
-std::shared_ptr<AsyncContext> P2PConnector::asyncRead(const std::shared_ptr<KVCacheResourceV1>& resource,
-                                                      const std::shared_ptr<Meta>&              meta,
-                                                      const std::shared_ptr<AsyncMatchContext>& match_context,
-                                                      const std::pair<int, int>&                block_range) {
+std::shared_ptr<AsyncContext> P2PConnector::asyncRead(const std::shared_ptr<KVCacheResourceV1>&    resource,
+                                                      const std::shared_ptr<KVCacheConnectorMeta>& meta,
+                                                      const std::shared_ptr<AsyncMatchContext>&    match_context,
+                                                      const std::pair<int, int>&                   block_range) {
     if (scheduler_ == nullptr) {
         RTP_LLM_LOG_WARNING("P2PConnector read failed, scheduler not ready (only tp_rank 0 has scheduler)");
         return nullptr;
     }
 
-    auto read_meta = std::dynamic_pointer_cast<P2PConnectorReadMeta>(meta);
-    if (!read_meta) {
-        RTP_LLM_LOG_WARNING("P2PConnector read failed, meta type error");
-        return nullptr;
-    }
-
     // TODO: support block range
     return scheduler_->asyncRead(resource,
-                                 read_meta->request_id,
-                                 read_meta->unique_key,
-                                 read_meta->prefill_ip,
-                                 read_meta->prefill_port,
-                                 read_meta->deadline_ms);
+                                 meta->request_id,
+                                 meta->unique_key,
+                                 meta->prefill_ip,
+                                 meta->prefill_port,
+                                 meta->deadline_ms,
+                                 meta->complete_token_ids);
 }
 
-std::shared_ptr<AsyncContext> P2PConnector::asyncWrite(const std::shared_ptr<KVCacheResourceV1>& resource,
-                                                       const std::shared_ptr<Meta>&              meta) {
+std::shared_ptr<AsyncContext> P2PConnector::asyncWrite(const std::shared_ptr<KVCacheResourceV1>&    resource,
+                                                       const std::shared_ptr<KVCacheConnectorMeta>& meta) {
     RTP_LLM_LOG_ERROR("P2PConnector::asyncWrite not supported, use asyncWriteByLayer instead");
     return nullptr;
 }
 
-std::shared_ptr<AsyncContext> P2PConnector::asyncWriteByLayer(int                                       layer_id,
-                                                              const std::shared_ptr<KVCacheResourceV1>& resource,
-                                                              const std::shared_ptr<Meta>&              meta) {
+std::shared_ptr<AsyncContext> P2PConnector::asyncWriteByLayer(int                                          layer_id,
+                                                              const std::shared_ptr<KVCacheResourceV1>&    resource,
+                                                              const std::shared_ptr<KVCacheConnectorMeta>& meta) {
     if (worker_ == nullptr) {
         RTP_LLM_LOG_WARNING("P2PConnector write by layer failed, worker not init");
         return nullptr;
     }
 
-    auto write_meta = std::dynamic_pointer_cast<P2PConnectorWriteMeta>(meta);
-    if (!write_meta) {
-        RTP_LLM_LOG_WARNING("P2PConnector write by layer failed, meta type error");
-        return nullptr;
-    }
-
     // writeByLayer is called by each rank
-    worker_->writeByLayer(layer_id, resource, write_meta->request_id, write_meta->event);
+    worker_->writeByLayer(layer_id, resource, meta->request_id, meta->attention_event);
     RTP_LLM_LOG_DEBUG("P2PConnector::asyncWriteByLayer: writeByLayer called, layer_id: %d", layer_id);
 
     return std::make_shared<P2PConnectorAsyncWriteByLayerContext>(resource);
 }
 
-grpc::Status P2PConnector::handleRead(const std::shared_ptr<KVCacheResourceV1>&            resource,
-                                      const std::string&                                   unique_key,
-                                      int64_t                                              request_id,
-                                      const std::vector<std::pair<std::string, uint32_t>>& decode_transfer_servers,
-                                      int64_t                                              deadline_ms) {
+grpc::Status P2PConnector::handleRead(const P2PConnectorStartLoadRequestPB& request,
+                                      P2PConnectorStartLoadResponsePB&      response) {
+    // 从 request 中提取参数
+    const std::string& unique_key  = request.unique_key();
+    int64_t            deadline_ms = request.deadline_ms();
+
+    // 构建 decode_transfer_servers
+    std::vector<std::pair<std::string, uint32_t>> decode_transfer_servers;
+    for (const auto& worker : request.workers()) {
+        decode_transfer_servers.emplace_back(worker.ip(), worker.cache_store_port());
+    }
+
     if (stream_store_ == nullptr) {
-        RTP_LLM_LOG_WARNING("P2PConnector handleWrite failed, stream_store not init");
+        RTP_LLM_LOG_WARNING("P2PConnector handleRead failed, stream_store not init");
+        response.set_success(false);
         return grpc::Status(grpc::StatusCode::INTERNAL, "stream_store not init");
     }
 
-    // 等待获取 stream
-    std::shared_ptr<GenerateStream> stream;
+    // 等待获取资源
+    std::shared_ptr<P2PConnectorResourceEntry> resource_entry;
     while (currentTimeMs() < deadline_ms) {
-        stream = stream_store_->stealStream(unique_key);
-        if (stream) {
+        resource_entry = stream_store_->stealResource(unique_key);
+        if (resource_entry) {
             break;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
-    if (!stream) {
-        RTP_LLM_LOG_ERROR("P2PConnector::handleWrite failed: stream is null");
-        return grpc::Status(grpc::StatusCode::INTERNAL, "stream is null");
+    if (!resource_entry) {
+        RTP_LLM_LOG_ERROR("P2PConnector::handleRead failed: resource not found, unique_key: %s", unique_key.c_str());
+        response.set_success(false);
+        return grpc::Status(grpc::StatusCode::INTERNAL, "resource not found");
     }
 
     if (worker_ == nullptr) {
-        RTP_LLM_LOG_ERROR("P2PConnector::handleWrite failed: worker is null");
+        RTP_LLM_LOG_ERROR("P2PConnector::handleRead failed: worker is null");
+        response.set_success(false);
         return grpc::Status(grpc::StatusCode::INTERNAL, "worker is null");
     }
 
-    // 执行 write 操作
-    bool success = worker_->handleRead(request_id, unique_key, deadline_ms, decode_transfer_servers);
-    if (!success) {
-        RTP_LLM_LOG_ERROR("P2PConnector::handleWrite failed: worker write failed");
-        return grpc::Status(grpc::StatusCode::INTERNAL, "worker write failed");
+    // 获取 first_generate_token_id（最后一个 token）
+    int first_token = 0;
+    if (resource_entry->complete_token_ids) {
+        auto tokens = resource_entry->complete_token_ids->currentExecuteTokens(0);
+        if (!tokens.empty()) {
+            first_token = tokens.back();
+        }
     }
 
+    // 执行 handleRead 操作 (发送 KV cache 到 decode 端)
+    int64_t request_id = resource_entry->request_id;
+    bool    success    = worker_->handleRead(request_id, unique_key, deadline_ms, decode_transfer_servers);
+    if (!success) {
+        RTP_LLM_LOG_ERROR("P2PConnector::handleRead failed: worker handleRead failed, unique_key: %s",
+                          unique_key.c_str());
+        response.set_success(false);
+        return grpc::Status(grpc::StatusCode::INTERNAL, "worker handleRead failed");
+    }
+
+    response.set_success(true);
+    response.set_first_generate_token_id(first_token);
     return grpc::Status::OK;
 }
 
-void P2PConnector::addStream(const std::string& unique_key, GenerateStreamPtr stream) {
+void P2PConnector::addResource(const std::string&                       unique_key,
+                               int64_t                                  request_id,
+                               const std::shared_ptr<CompleteTokenIds>& complete_token_ids,
+                               int64_t                                  deadline_us) {
     if (stream_store_ == nullptr) {
-        RTP_LLM_LOG_WARNING("P2PConnector addStream failed, stream_store not init");
+        RTP_LLM_LOG_WARNING("P2PConnector addResource failed, stream_store not init");
         return;
     }
-    stream_store_->addStream(unique_key, stream);
+    stream_store_->addResource(unique_key, request_id, complete_token_ids, deadline_us);
 }
 
-std::shared_ptr<TPBroadcastService::Callback> P2PConnector::makeCallback() {
+bool P2PConnector::handleTpBroadcast(const BroadcastTpRequestPB request, BroadcastTpResponsePB& response) {
     if (worker_ == nullptr) {
-        RTP_LLM_LOG_WARNING("P2PConnector makeCallback failed, worker not init");
-        return nullptr;
+        RTP_LLM_LOG_WARNING("P2PConnector handleTpBroadcast failed, worker not init");
+        return false;
     }
-    return std::make_shared<P2PConnectorWorkerTPCallback>(worker_);
+
+    if (!request.has_p2p_request()) {
+        RTP_LLM_LOG_WARNING("P2PConnector handleTpBroadcast failed, no p2p_request in BroadcastTpRequestPB");
+        return false;
+    }
+
+    const auto& p2p_request = request.p2p_request();
+    int64_t     request_id  = p2p_request.request_id();
+    std::string unique_key  = p2p_request.unique_key();
+    int64_t     deadline_ms = p2p_request.deadline_ms();
+
+    if (p2p_request.type() == P2PConnectorBroadcastType::HANDLE_READ) {
+        // Prefill 端: handleRead 请求
+        std::vector<std::pair<std::string, uint32_t>> decode_transfer_servers;
+        for (const auto& peer_worker : p2p_request.peer_workers()) {
+            decode_transfer_servers.emplace_back(peer_worker.ip(), peer_worker.cache_store_port());
+        }
+        bool ret = worker_->handleRead(request_id, unique_key, deadline_ms, decode_transfer_servers);
+        response.mutable_p2p_response()->set_success(ret);
+        return ret;
+    } else if (p2p_request.type() == P2PConnectorBroadcastType::READ) {
+        // Decode 端: read 请求
+        std::vector<std::shared_ptr<LayerCacheBuffer>> layer_cache_buffers;
+        for (const auto& layer_block_pb : p2p_request.layer_blocks()) {
+            auto layer_id           = layer_block_pb.layer_id();
+            auto layer_cache_buffer = std::make_shared<LayerCacheBuffer>(layer_id);
+            auto cache_keys         = layer_block_pb.cache_keys();
+            auto block_ids          = layer_block_pb.block_ids();
+            if (cache_keys.size() != block_ids.size()) {
+                RTP_LLM_LOG_WARNING("P2PConnector handleTpBroadcast: cache_keys and block_ids size mismatch");
+                response.mutable_p2p_response()->set_success(false);
+                return false;
+            }
+            for (size_t i = 0; i < cache_keys.size(); i++) {
+                layer_cache_buffer->addBlockId(cache_keys[i], block_ids[i]);
+            }
+            layer_cache_buffers.push_back(layer_cache_buffer);
+        }
+        bool ret = worker_->read(request_id, unique_key, deadline_ms, layer_cache_buffers);
+        response.mutable_p2p_response()->set_success(ret);
+        return ret;
+    } else {
+        RTP_LLM_LOG_WARNING("P2PConnector handleTpBroadcast failed, unknown p2p_request type");
+        response.mutable_p2p_response()->set_success(false);
+        return false;
+    }
 }
 
 }  // namespace rtp_llm

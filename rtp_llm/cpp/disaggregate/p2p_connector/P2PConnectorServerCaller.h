@@ -4,6 +4,7 @@
 #include "rtp_llm/cpp/model_rpc/proto/model_rpc_service.grpc.pb.h"
 #include "rtp_llm/cpp/model_rpc/proto/model_rpc_service.pb.h"
 #include "rtp_llm/cpp/disaggregate/transfer/LayerCacheBuffer.h"
+#include "rtp_llm/cpp/engine_base/stream/CompleteTokenIds.h"
 #include "rtp_llm/cpp/utils/TimeUtil.h"
 #include <grpc++/grpc++.h>
 #include <memory>
@@ -51,13 +52,15 @@ public:
         int64_t                                                                           request_id_;
         int64_t                                                                           start_time_us_;
         int64_t                                                                           total_cost_time_us_;
+        std::shared_ptr<CompleteTokenIds>                                                 complete_token_ids_;
     };
 
-    std::shared_ptr<Result> load(int64_t            request_id,
-                                 const std::string& prefill_ip,
-                                 uint32_t           prefill_port,
-                                 const std::string& unique_key,
-                                 int64_t            deadline_ms);
+    std::shared_ptr<Result> load(int64_t                                  request_id,
+                                 const std::string&                       prefill_ip,
+                                 uint32_t                                 prefill_port,
+                                 const std::string&                       unique_key,
+                                 int64_t                                  deadline_ms,
+                                 const std::shared_ptr<CompleteTokenIds>& complete_token_ids);
 
 private:
     std::vector<std::string>    worker_addrs_;

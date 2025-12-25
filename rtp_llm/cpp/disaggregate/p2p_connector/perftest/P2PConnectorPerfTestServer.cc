@@ -6,6 +6,7 @@
 
 #include "rtp_llm/cpp/devices/DeviceFactory.h"
 #include "rtp_llm/cpp/core/torch_utils/BufferTorchUtils.h"
+#include "rtp_llm/cpp/utils/TimeUtil.h"
 
 namespace rtp_llm {
 
@@ -142,33 +143,6 @@ std::shared_ptr<KVCacheResourceV1> P2PConnectorPerfTestServer::createTestResourc
     return resource;
 }
 
-GenerateStreamPtr P2PConnectorPerfTestServer::createMockStream(const std::string& unique_key) const {
-    // Create a simple mock GenerateInput
-    auto generate_input             = std::make_shared<GenerateInput>();
-    auto generate_config            = std::make_shared<GenerateConfig>();
-    generate_input->generate_config = generate_config;
-
-    // Create simple input_ids
-    std::vector<int> input_ids(config_.num_blocks * 128, 1);  // Dummy input
-    generate_input->input_ids = rtp_llm::vector2Buffer(input_ids);
-
-    // Set unique key for P2P separation
-    generate_config->pd_sepration_unique_key = unique_key;
-
-    ResourceContext resource_context;
-
-    // Create stream with perf_test flag
-    auto stream = std::make_shared<NormalGenerateStream>(generate_input,
-                                                         gpt_params_,
-                                                         resource_context,
-                                                         metrics_reporter_,
-                                                         0,    // extra_reserve_token_num
-                                                         true  // perf_test
-    );
-
-    return stream;
-}
-
 std::vector<std::pair<std::string, uint32_t>> P2PConnectorPerfTestServer::getDecodeTransferServerAddrs() const {
     std::vector<std::pair<std::string, uint32_t>> addrs;
     for (int i = 0; i < config_.tp_size; ++i) {
@@ -212,15 +186,13 @@ void P2PConnectorPerfTestServer::processRequest(int64_t request_id) {
         }
     }
 
-    // On rank 0, also call addStream (for stream management testing)
+    // On rank 0, also call addResource (for stream management testing)
     if (config_.tp_size > 0) {
         auto connector = servers_[0]->getConnector();
         if (connector) {
-            // Create a mock stream and add it
-            auto mock_stream = createMockStream(unique_key);
-            if (mock_stream) {
-                connector->addStream(unique_key, mock_stream);
-            }
+            // Create mock resource data (nullptr for complete_token_ids in perf test)
+            int64_t deadline_us = currentTimeUs() + config_.deadline_ms * 1000;
+            connector->addResource(unique_key, request_id, nullptr, deadline_us);
         }
     }
 
