@@ -2,19 +2,27 @@
 
 #include "rtp_llm/cpp/cache/BatchKVCacheResource.h"
 #include "rtp_llm/cpp/cache/connector/AsyncContext.h"
-#include "rtp_llm/cpp/engine_base/stream/CompleteTokenIds.h"
 #include "rtp_llm/cpp/core/Event.h"
 
 namespace rtp_llm {
 
+class ICompleteTokenIds {
+public:
+    virtual ~ICompleteTokenIds() = default;
+
+public:
+    virtual void             appendTokenId(int batch_id, int token_id) = 0;
+    virtual std::vector<int> currentExecuteTokens(int batch_id)        = 0;
+};
+
 struct KVCacheConnectorMeta {
-    int64_t                           request_id;
-    std::string                       unique_key;
-    std::string                       prefill_ip;
-    uint32_t                          prefill_port;
-    int64_t                           deadline_ms;
-    std::shared_ptr<CompleteTokenIds> complete_token_ids;
-    DeviceEventPtr                    attention_event;
+    int64_t                            request_id;
+    std::string                        unique_key;
+    std::string                        prefill_ip;
+    uint32_t                           prefill_port;
+    int64_t                            deadline_ms;
+    std::shared_ptr<ICompleteTokenIds> complete_token_ids;
+    DeviceEventPtr                     attention_event;
 };
 
 class KVCacheConnector {

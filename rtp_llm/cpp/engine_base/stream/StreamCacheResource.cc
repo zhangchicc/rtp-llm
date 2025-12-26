@@ -196,7 +196,7 @@ bool StreamCacheResource::asyncLoadCache() {
     meta->prefill_ip         = stream_->prefillAddr().first;
     meta->prefill_port       = stream_->prefillAddr().second;
     meta->deadline_ms        = stream_->deadlineUs();
-    meta->complete_token_ids = stream_->completeTokenIdsPtr();
+    meta->complete_token_ids = std::make_shared<ICompleteTokenIdImpl>(stream_->completeTokenIdsPtr());
 
     KVCacheConnectorControlParams control_params;
     control_params.enable_memory_cache = enableMemoryBlockCache();

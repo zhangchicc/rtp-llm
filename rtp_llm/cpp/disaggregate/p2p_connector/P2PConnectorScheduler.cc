@@ -56,7 +56,7 @@ P2PConnectorScheduler::asyncRead(const std::shared_ptr<KVCacheResourceV1>& resou
                                  const std::string&                        prefill_ip,
                                  uint32_t                                  prefill_port,
                                  int64_t                                   deadline_ms,
-                                 const std::shared_ptr<CompleteTokenIds>&  complete_token_ids) {
+                                 const std::shared_ptr<ICompleteTokenIds>& complete_token_ids) {
     auto collector = std::make_shared<P2PConnectorClientSchedulerMetricsCollector>(metrics_reporter_);
     if (!resource) {
         RTP_LLM_LOG_WARNING("P2PConnectorScheduler asyncRead: resource is null");

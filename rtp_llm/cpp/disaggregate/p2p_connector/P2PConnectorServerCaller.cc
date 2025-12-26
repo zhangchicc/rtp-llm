@@ -33,12 +33,12 @@ P2PConnectorServerCaller::P2PConnectorServerCaller(const std::vector<std::string
 }
 
 std::shared_ptr<P2PConnectorServerCaller::Result>
-P2PConnectorServerCaller::load(int64_t                                  request_id,
-                               const std::string&                       prefill_ip,
-                               uint32_t                                 prefill_port,
-                               const std::string&                       unique_key,
-                               int64_t                                  deadline_ms,
-                               const std::shared_ptr<CompleteTokenIds>& complete_token_ids) {
+P2PConnectorServerCaller::load(int64_t                                   request_id,
+                               const std::string&                        prefill_ip,
+                               uint32_t                                  prefill_port,
+                               const std::string&                        unique_key,
+                               int64_t                                   deadline_ms,
+                               const std::shared_ptr<ICompleteTokenIds>& complete_token_ids) {
     if (!rpc_pool_) {
         RTP_LLM_LOG_WARNING("P2PConnectorServerCaller load failed: rpc_pool is null");
         return nullptr;
@@ -176,9 +176,8 @@ void P2PConnectorServerCaller::Result::checkDone() {
         return;
     }
 
-    int32_t token_id  = static_cast<int32_t>(response.first_generate_token_id());
-    auto    new_token = rtp_llm::Buffer(rtp_llm::MemoryType::MEMORY_CPU, rtp_llm::DataType::TYPE_INT32, {1}, &token_id);
-    complete_token_ids_->appendTokens(0, 1, new_token);
+    int32_t token_id = static_cast<int32_t>(response.first_generate_token_id());
+    complete_token_ids_->appendTokenId(0, token_id);
     RTP_LLM_LOG_DEBUG("P2PConnectorServerCaller::Result::waitDone: success, server_addr: %s", server_addr.c_str());
     return;
 }

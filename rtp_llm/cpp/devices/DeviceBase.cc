@@ -11,6 +11,8 @@
 #include <numeric>
 #include "rtp_llm/cpp/config/ConfigModules.h"
 #include "rtp_llm/cpp/disaggregate/cache_store/ErrorCodeUtil.h"
+#include "rtp_llm/cpp/cache/BatchKVCacheResource.h"
+#include "rtp_llm/cpp/cache/connector/IKVCacheConnectorCoordinator.h"
 
 using namespace std;
 using namespace rtp_llm;
@@ -151,6 +153,7 @@ void DeviceBase::setCacheStore(std::shared_ptr<rtp_llm::CacheStore> cache_store)
 void DeviceBase::writeCacheStore(const WriteCacheParams& params) {
     if (params.cache_store_inputs.has_value() && params.kv_cache.has_value()) {
         writeCacheStore(params.cache_store_inputs.value(), params.kv_cache.value(), params.mla_kvcache);
+        writeCacheToConnector(params);
     }
 }
 
@@ -222,6 +225,84 @@ void DeviceBase::writeCacheStore(const CacheStoreInputs& cache_store_inputs,
             }
         };
         cache_store_->store(request_blocks, storeCallback);
+    }
+}
+
+void DeviceBase::setConnectorCoordinator(std::shared_ptr<IKVCacheConnectorCoordinator> connector_coordinator) {
+    connector_coordinator_ = connector_coordinator;
+}
+
+void DeviceBase::writeCacheToConnector(const WriteCacheParams& params) {
+    if (!connector_coordinator_ || !params.kv_cache.has_value() || !params.cache_store_inputs.has_value()) {
+        RTP_LLM_LOG_WARNING(
+            "DeviceBase writeCacheToConnector failed: connector_coordinator is null or kv_cache or cache_store_inputs is null");
+        return;
+    }
+
+    auto& param = params.cache_store_inputs.value();
+    if (param.warmup) {
+        RTP_LLM_LOG_DEBUG("is warmup, so ignore writeCacheStore");
+        return;
+    }
+
+    if (!param.pd_separation || param.context_batch_size == 0) {
+        return;
+    }
+
+    auto       seq_size_per_block   = param.tokens_per_block;
+    const auto max_blocks_per_batch = param.host_kv_cache_offset->shape()[1];
+
+    // RTP_LLM_LOG_INFO("DeviceBase writeKVCacheConnector start, context_batch_size: %ld", param.context_batch_size);
+
+    for (size_t batch_id = 0; batch_id < param.context_batch_size; batch_id++) {
+        if (*(param.request_pd_separation->dataWithOffset<bool>(batch_id)) == false) {
+            RTP_LLM_LOG_INFO("DeviceBase writeKVCacheConnector ignore batch_id: %ld", batch_id);
+            continue;
+        }
+        auto request_id = *(param.request_id->dataWithOffset<int64_t>(batch_id));
+        RTP_LLM_CHECK_WITH_INFO(param.prefix_lengths_host && param.input_lengths_host,
+                                "failed to get prefix_length_host and input_length_host for cache store");
+        RTP_LLM_CHECK_WITH_INFO(param.prefix_lengths_host->data<int>()[batch_id] % seq_size_per_block == 0,
+                                "prefix_length \% seq_size_per_block != 0");
+
+        int block_num =
+            (param.input_lengths_host->data<int>()[param.decoder_batch_size + batch_id] + seq_size_per_block - 1)
+            / seq_size_per_block;
+        auto reuse_block_num = param.prefix_lengths_host->data<int>()[batch_id] / seq_size_per_block;
+        auto total_block_num = block_num + reuse_block_num;
+
+        // construct cache_keys
+        auto kv_cache_resource_v1 = std::make_shared<KVCacheResourceV1>();
+        for (size_t index = 0; index < total_block_num; index++) {
+            auto    str_cache_key = param.cache_keys[batch_id * max_blocks_per_batch + index];
+            int64_t cache_key     = 0;
+            if (!autil::StringUtil::strToInt64(str_cache_key.c_str(), cache_key)) {
+                RTP_LLM_LOG_WARNING(
+                    "DeviceBase writeKVCacheConnector failed to convert cache_key to int64_t, cache_key: %s",
+                    str_cache_key.c_str());
+                return;
+            }
+            kv_cache_resource_v1->cacheKeys().push_back(cache_key);
+        }
+
+        // construct block_ids
+        kv_cache_resource_v1->layerBlockIds().resize(param.layer_id + 1);
+        if (!kv_cache_resource_v1->layerBlockIds()[param.layer_id]) {
+            kv_cache_resource_v1->layerBlockIds()[param.layer_id] = std::make_shared<BlockIds>();
+        }
+        auto& block_ids = kv_cache_resource_v1->layerBlockIds()[param.layer_id];
+        block_ids->blocks().resize(total_block_num, -1);
+
+        auto offset_addr = param.host_kv_cache_offset->data<int32_t>();
+        for (size_t index = 0; index < total_block_num; index++) {
+            auto block_id = *(offset_addr + (param.decoder_batch_size + batch_id) * max_blocks_per_batch + index);
+            block_ids->blocks()[index] = block_id;
+        }
+
+        auto meta             = std::make_shared<KVCacheConnectorMeta>();
+        meta->request_id      = request_id;
+        meta->attention_event = createEvent();
+        connector_coordinator_->asyncWriteByLayer(param.layer_id, *kv_cache_resource_v1, meta, {});
     }
 }
 

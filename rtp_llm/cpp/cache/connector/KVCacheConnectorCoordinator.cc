@@ -383,4 +383,31 @@ bool KVCacheConnectorCoordinator::handleRead(const P2PConnectorStartLoadRequestP
     return ret.ok();
 }
 
+void KVCacheConnectorCoordinator::cacheStream(const std::string&                        unique_key,
+                                              int64_t                                   request_id,
+                                              const std::shared_ptr<ICompleteTokenIds>& complete_token_ids,
+                                              int64_t                                   deadline_ms) {
+    if (stop_.load()) {
+        RTP_LLM_LOG_WARNING("cacheStream failed, coordinator is stopped");
+        return;
+    }
+
+    if (!p2p_connector_) {
+        RTP_LLM_LOG_WARNING("cacheStream failed, p2p connector is null");
+        return;
+    }
+    p2p_connector_->addResource(unique_key, request_id, complete_token_ids, deadline_ms);
+}
+
+ICompleteTokenIdImpl::ICompleteTokenIdImpl(const std::shared_ptr<CompleteTokenIds>& complete_token_ids):
+    complete_token_ids_(complete_token_ids) {}
+
+void ICompleteTokenIdImpl::appendTokenId(int batch_id, int token_id) {
+    auto new_token = rtp_llm::Buffer(rtp_llm::MemoryType::MEMORY_CPU, rtp_llm::DataType::TYPE_INT32, {1}, &token_id);
+    complete_token_ids_->appendTokens(batch_id, 0, new_token);
+}
+
+std::vector<int> ICompleteTokenIdImpl::currentExecuteTokens(int batch_id) {
+    return complete_token_ids_->currentExecuteTokens(batch_id);
+}
 }  // namespace rtp_llm

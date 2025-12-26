@@ -78,8 +78,12 @@ public:
                                                   const std::shared_ptr<KVCacheConnectorMeta>& meta,
                                                   const KVCacheConnectorControlParams&         control_params);
 
+    std::shared_ptr<IKVCacheConnectorCoordinator> connectorCoordinatorInterface() const;
+    std::shared_ptr<KVCacheConnectorCoordinator>  connectorCoordinator() const;
+
     // broadcast tp for single rank
     bool broadcastTp(const BroadcastTpRequestPB& request, BroadcastTpResponsePB& response);
+    bool handleRead(const P2PConnectorStartLoadRequestPB& request, P2PConnectorStartLoadResponsePB& response);
 
 private:
     bool initConnectorCoordinator();

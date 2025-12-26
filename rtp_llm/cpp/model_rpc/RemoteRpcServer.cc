@@ -7,7 +7,8 @@ namespace rtp_llm {
 
 grpc::Status RemoteRpcServer::init(const EngineInitParams&                                maga_init_params,
                                    py::object                                             mm_process_engine,
-                                   std::unique_ptr<rtp_llm::ProposeModelEngineInitParams> propose_params) {
+                                   std::unique_ptr<rtp_llm::ProposeModelEngineInitParams> propose_params,
+                                   bool                                                   init_cache_store) {
     rtp_llm::ProposeModelEngineInitParams* propose_params_ptr = propose_params ? propose_params.get() : nullptr;
     auto ret = LocalRpcServer::init(maga_init_params, mm_process_engine, std::move(propose_params));
     if (!ret.ok()) {
@@ -15,7 +16,9 @@ grpc::Status RemoteRpcServer::init(const EngineInitParams&                      
     }
     initLocalHostInfo();
     initLocalPeerInfo();
-    initCacheStore(maga_init_params, propose_params_ptr);
+    if (init_cache_store) {
+        initCacheStore(maga_init_params, propose_params_ptr);
+    }
     return grpc::Status::OK;
 }
 
@@ -40,9 +43,9 @@ void RemoteRpcServer::initLocalPeerInfo() {
         return;
     }
     // worker 0 is master (rank 0)
-    resource_.workers = maga_init_params_.runtime_config.worker_addrs;
+    resource_.workers      = maga_init_params_.runtime_config.worker_addrs;
     resource_.grpc_workers = maga_init_params_.runtime_config.worker_grpc_addrs;
-    
+
     string worker_info = "worker address is ";
     for (auto& worker : resource_.workers) {
         worker_info += worker + ", ";
@@ -60,7 +63,8 @@ void RemoteRpcServer::initCacheStore(const EngineInitParams&                init
                                      rtp_llm::ProposeModelEngineInitParams* propose_params) {
     RTP_LLM_LOG_INFO("init_params.role_type : %d", init_params.pd_sep_config.role_type);
 
-    if (init_params.pd_sep_config.role_type != RoleType::PREFILL && init_params.pd_sep_config.role_type != RoleType::DECODE) {
+    if (init_params.pd_sep_config.role_type != RoleType::PREFILL
+        && init_params.pd_sep_config.role_type != RoleType::DECODE) {
         RTP_LLM_FAIL("role_type must be prefill or decode, but it is %d", init_params.pd_sep_config.role_type);
     }
     auto device        = engine_->getDevice();

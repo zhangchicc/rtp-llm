@@ -9,6 +9,7 @@
 #include "rtp_llm/cpp/cache/CacheConfig.h"
 #include "rtp_llm/cpp/cache/connector/AsyncContext.h"
 #include "rtp_llm/cpp/cache/connector/KVCacheConnector.h"
+#include "rtp_llm/cpp/cache/connector/IKVCacheConnectorCoordinator.h"
 #include "rtp_llm/cpp/cache/KVCacheAllocator.h"
 #include "rtp_llm/cpp/config/ConfigModules.h"
 #include "rtp_llm/cpp/model_rpc/proto/model_rpc_service.grpc.pb.h"
@@ -17,15 +18,10 @@
 namespace rtp_llm {
 
 class DeviceBase;
-class KVCacheAllocator;
-class KVCacheMemoryConnector;
-class KVCacheConnectorReadWriteContext;
 
-struct KVCacheConnectorControlParams {
-    bool enable_memory_cache = false;
-};
-
-class KVCacheConnectorCoordinator: public std::enable_shared_from_this<KVCacheConnectorCoordinator> {
+class KVCacheConnectorCoordinator:
+    public std::enable_shared_from_this<KVCacheConnectorCoordinator>,
+    public IKVCacheConnectorCoordinator {
 public:
     KVCacheConnectorCoordinator(const CacheConfig&                       cache_config,
                                 const KVCacheConfig&                     kv_cache_config,
@@ -44,16 +40,23 @@ public:
 
     std::shared_ptr<AsyncContext> asyncRead(const KVCacheResourceV1&                     resource,
                                             const std::shared_ptr<KVCacheConnectorMeta>& meta,
-                                            const KVCacheConnectorControlParams&         control_params);
+                                            const KVCacheConnectorControlParams&         control_params) override;
     std::shared_ptr<AsyncContext> asyncWrite(const KVCacheResourceV1&                     resource,
                                              const std::shared_ptr<KVCacheConnectorMeta>& meta,
-                                             const KVCacheConnectorControlParams&         control_params);
+                                             const KVCacheConnectorControlParams&         control_params) override;
     std::shared_ptr<AsyncContext> asyncWriteByLayer(int                                          layer_id,
                                                     const KVCacheResourceV1&                     resource,
                                                     const std::shared_ptr<KVCacheConnectorMeta>& meta,
-                                                    const KVCacheConnectorControlParams&         control_params);
-    bool                          broadcastTp(const BroadcastTpRequestPB& request, BroadcastTpResponsePB& response);
+                                                    const KVCacheConnectorControlParams& control_params) override;
+
+    // for connector rpc
+    bool broadcastTp(const BroadcastTpRequestPB& request, BroadcastTpResponsePB& response);
     bool handleRead(const P2PConnectorStartLoadRequestPB& request, P2PConnectorStartLoadResponsePB& response);
+    // TODO: try better way to cache stream to connector
+    void cacheStream(const std::string&                        unique_key,
+                     int64_t                                   request_id,
+                     const std::shared_ptr<ICompleteTokenIds>& complete_token_ids,
+                     int64_t                                   deadline_ms);
 
 private:
     bool initMemoryConnector();
@@ -85,6 +88,19 @@ private:
     autil::LoopThreadPtr                              update_thread_;
     const int                                         update_interval_ms_{1};
     std::atomic<bool>                                 stop_{false};
+};
+
+class ICompleteTokenIdImpl: public ICompleteTokenIds {
+public:
+    ICompleteTokenIdImpl(const std::shared_ptr<CompleteTokenIds>& complete_token_ids);
+    ~ICompleteTokenIdImpl() = default;
+
+public:
+    void             appendTokenId(int batch_id, int token_id) override;
+    std::vector<int> currentExecuteTokens(int batch_id) override;
+
+private:
+    std::shared_ptr<CompleteTokenIds> complete_token_ids_;
 };
 
 }  // namespace rtp_llm

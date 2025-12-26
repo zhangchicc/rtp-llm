@@ -66,6 +66,14 @@ bool P2PConnector::init() {
 
 std::shared_ptr<AsyncMatchContext> P2PConnector::asyncMatch(const std::shared_ptr<KVCacheResourceV1>&    resource,
                                                             const std::shared_ptr<KVCacheConnectorMeta>& meta) {
+    if (meta->unique_key.empty() || meta->prefill_ip.empty() || meta->prefill_port == 0) {
+        RTP_LLM_LOG_WARNING("P2PConnector asyncMatch failed, unique_key: %s, prefill_ip: %s, prefill_port: %d",
+                            meta->unique_key.c_str(),
+                            meta->prefill_ip.c_str(),
+                            meta->prefill_port);
+        return nullptr;
+    }
+
     // P2PConnector 不需要 match，直接返回一个简单的 context
     return std::make_shared<P2PConnectorAsyncMatchContext>(resource);
 }
@@ -135,7 +143,7 @@ grpc::Status P2PConnector::handleRead(const P2PConnectorStartLoadRequestPB& requ
         if (resource_entry) {
             break;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
     if (!resource_entry) {
@@ -174,10 +182,10 @@ grpc::Status P2PConnector::handleRead(const P2PConnectorStartLoadRequestPB& requ
     return grpc::Status::OK;
 }
 
-void P2PConnector::addResource(const std::string&                       unique_key,
-                               int64_t                                  request_id,
-                               const std::shared_ptr<CompleteTokenIds>& complete_token_ids,
-                               int64_t                                  deadline_us) {
+void P2PConnector::addResource(const std::string&                        unique_key,
+                               int64_t                                   request_id,
+                               const std::shared_ptr<ICompleteTokenIds>& complete_token_ids,
+                               int64_t                                   deadline_us) {
     if (stream_store_ == nullptr) {
         RTP_LLM_LOG_WARNING("P2PConnector addResource failed, stream_store not init");
         return;

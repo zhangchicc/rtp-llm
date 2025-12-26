@@ -30,10 +30,10 @@ bool P2PConnectorStreamStore::init() {
     return true;
 }
 
-void P2PConnectorStreamStore::addResource(const std::string&                       unique_key,
-                                          int64_t                                  request_id,
-                                          const std::shared_ptr<CompleteTokenIds>& complete_token_ids,
-                                          int64_t                                  deadline_us) {
+void P2PConnectorStreamStore::addResource(const std::string&                        unique_key,
+                                          int64_t                                   request_id,
+                                          const std::shared_ptr<ICompleteTokenIds>& complete_token_ids,
+                                          int64_t                                   deadline_us) {
     std::lock_guard<std::mutex> lock(resource_map_mutex_);
     auto                        entry = std::make_shared<P2PConnectorResourceEntry>();
     entry->request_id                 = request_id;

@@ -372,4 +372,22 @@ bool KVCacheManager::broadcastTp(const BroadcastTpRequestPB& request, BroadcastT
     return connector_coordinator_->broadcastTp(request, response);
 }
 
+bool KVCacheManager::handleRead(const P2PConnectorStartLoadRequestPB& request,
+                                P2PConnectorStartLoadResponsePB&      response) {
+    if (!connector_coordinator_) {
+        RTP_LLM_LOG_WARNING("handle read failed, coordinator is null, request: [%s]", request.DebugString().c_str());
+        response.set_success(false);
+        return false;
+    }
+    return connector_coordinator_->handleRead(request, response);
+}
+
+std::shared_ptr<IKVCacheConnectorCoordinator> KVCacheManager::connectorCoordinatorInterface() const {
+    return std::static_pointer_cast<IKVCacheConnectorCoordinator>(connector_coordinator_);
+}
+
+std::shared_ptr<KVCacheConnectorCoordinator> KVCacheManager::connectorCoordinator() const {
+    return connector_coordinator_;
+}
+
 }  // namespace rtp_llm

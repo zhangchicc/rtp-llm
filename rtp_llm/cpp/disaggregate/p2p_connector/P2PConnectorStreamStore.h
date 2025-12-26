@@ -8,16 +8,17 @@
 #include <atomic>
 #include <vector>
 #include "autil/LoopThread.h"
-#include "rtp_llm/cpp/engine_base/stream/CompleteTokenIds.h"
+#include "rtp_llm/cpp/cache/connector/KVCacheConnector.h"
+#include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorMetrics.h"
 
 namespace rtp_llm {
 
 /// @brief P2P Connector 资源条目，存储 prefill 完成后的关键数据
 struct P2PConnectorResourceEntry {
-    int64_t                           request_id;          // 请求 ID
-    std::shared_ptr<CompleteTokenIds> complete_token_ids;  // 完整的 token ids
-    int64_t                           deadline_us;         // 过期时间
-    int64_t                           add_time_us;         // 添加时间
+    int64_t                            request_id;          // 请求 ID
+    std::shared_ptr<ICompleteTokenIds> complete_token_ids;  // 完整的 token ids
+    int64_t                            deadline_us;         // 过期时间
+    int64_t                            add_time_us;         // 添加时间
 };
 
 /// @brief P2P Connector Resource Store，存储 prefill 完成后的资源
@@ -34,10 +35,10 @@ public:
 
 public:
     /// @brief 添加资源条目
-    void addResource(const std::string&                       unique_key,
-                     int64_t                                  request_id,
-                     const std::shared_ptr<CompleteTokenIds>& complete_token_ids,
-                     int64_t                                  deadline_us);
+    void addResource(const std::string&                        unique_key,
+                     int64_t                                   request_id,
+                     const std::shared_ptr<ICompleteTokenIds>& complete_token_ids,
+                     int64_t                                   deadline_us);
 
     /// @brief 获取并移除资源条目
     std::shared_ptr<P2PConnectorResourceEntry> stealResource(const std::string& unique_key);

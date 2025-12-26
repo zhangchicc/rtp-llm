@@ -6,7 +6,6 @@
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorScheduler.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorStreamStore.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorWorker.h"
-#include "rtp_llm/cpp/engine_base/stream/CompleteTokenIds.h"
 #include <grpc++/grpc++.h>
 #include <memory>
 #include <string>
@@ -53,10 +52,10 @@ public:
     bool handleTpBroadcast(const BroadcastTpRequestPB request, BroadcastTpResponsePB& response);
 
     // Prefill side: reserve resource for P2P transfer
-    void addResource(const std::string&                       unique_key,
-                     int64_t                                  request_id,
-                     const std::shared_ptr<CompleteTokenIds>& complete_token_ids,
-                     int64_t                                  deadline_us);
+    void addResource(const std::string&                        unique_key,
+                     int64_t                                   request_id,
+                     const std::shared_ptr<ICompleteTokenIds>& complete_token_ids,
+                     int64_t                                   deadline_us);
 
 private:
     const KVCacheConfig&                 cache_config_;
