@@ -54,7 +54,7 @@ public:
     FusedAsyncReadContext(const std::shared_ptr<FusedAsyncContext>&    fused_match_context,
                           const std::shared_ptr<KVCacheResourceV1>&    resource,
                           const std::shared_ptr<KVCacheConnectorMeta>& meta);
-    ~FusedAsyncReadContext() override;
+    ~FusedAsyncReadContext() override = default;
 
 public:
     bool done() const override;

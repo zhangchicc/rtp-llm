@@ -24,6 +24,10 @@ public:
 
     ~StreamCacheResource() {
         releaseResource();
+        RTP_LLM_LOG_INFO(
+            "StreamCacheResource destroyed, load_cache_context use_count: %zu, store_cache_context use_count: %zu",
+            load_cache_context_.use_count(),
+            store_cache_context_.use_count());
     }
 
     void                 init(int batch_size);

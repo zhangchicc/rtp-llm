@@ -33,11 +33,11 @@ public:
               const std::shared_ptr<ICompleteTokenIds>& complete_token_ids);
 
     // Prefill side: handle read request from decode (sync)
-    grpc::Status handleRead(const std::shared_ptr<KVCacheResourceV1>&            resource,
-                            const std::string&                                   unique_key,
-                            int64_t                                              request_id,
-                            const std::vector<std::pair<std::string, uint32_t>>& decode_transfer_servers,
-                            int64_t                                              deadline_ms);
+    bool handleRead(const std::shared_ptr<KVCacheResourceV1>&            resource,
+                    const std::string&                                   unique_key,
+                    int64_t                                              request_id,
+                    const std::vector<std::pair<std::string, uint32_t>>& decode_transfer_servers,
+                    int64_t                                              deadline_ms);
 
 private:
     const RuntimeConfig&                                 runtime_config_;

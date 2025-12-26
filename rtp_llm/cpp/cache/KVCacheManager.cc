@@ -58,6 +58,8 @@ KVCacheManager::~KVCacheManager() {
 }
 
 bool KVCacheManager::init() {
+    RTP_LLM_LOG_INFO("KVCacheManager init begin");
+
     RTP_LLM_CHECK_WITH_INFO(config_.cache_specs.size() == 1, "cache specs size should be 1");
 
     auto& spec = config_.cache_specs[0];
@@ -73,13 +75,13 @@ bool KVCacheManager::init() {
         RTP_LLM_CHECK_WITH_INFO(false, "SingleTypeKVCacheAllocator only support Full Attention");
         return false;
     }
+    RTP_LLM_LOG_INFO("SingleTypeKVCacheAllocator initialized successfully");
 
-    if (kv_cache_config_.memory_block_cache_size_mb > 0) {
-        if (!initConnectorCoordinator()) {
-            RTP_LLM_LOG_ERROR("init connector coordinator failed");
-            return false;
-        }
+    if (!initConnectorCoordinator()) {
+        RTP_LLM_LOG_ERROR("init connector coordinator failed");
+        return false;
     }
+    RTP_LLM_LOG_INFO("connector coordinator initialized successfully");
     return true;
 }
 
@@ -183,6 +185,9 @@ MallocResult KVCacheManager::malloc(const MallocInfo& malloc_info) {
     if (!malloc_info.batch_kv_cache_resource->first_fill_finished) {
         initCacheKeys(malloc_info.batch_kv_cache_resource, malloc_info.complete_token_ids, seq_size_per_block);
         malloc_info.batch_kv_cache_resource->first_fill_finished = true;
+        RTP_LLM_LOG_INFO("malloc first fill finished, batch_kv_cache_resource: %p, cache_keys size: %ld",
+                         malloc_info.batch_kv_cache_resource.get(),
+                         malloc_info.batch_kv_cache_resource->cacheKeys().size());
     } else {
         updateCacheKeys(malloc_info.batch_kv_cache_resource, malloc_info.complete_token_ids, seq_size_per_block);
     }
@@ -360,12 +365,8 @@ std::shared_ptr<AsyncContext> KVCacheManager::asyncStoreCache(const KVCacheResou
 }
 
 bool KVCacheManager::broadcastTp(const BroadcastTpRequestPB& request, BroadcastTpResponsePB& response) {
-    if (!request.has_mem_request()) {
-        RTP_LLM_LOG_WARNING("broadcast tp failed, request is invalid, request: [%s]", request.DebugString().c_str());
-        return false;
-    }
     if (!connector_coordinator_) {
-        RTP_LLM_LOG_WARNING("broadcast tp failed, coordinator is null, request: [%s]", request.DebugString().c_str());
+        RTP_LLM_LOG_WARNING("broadcast tp failed, coordinator is null");
         response.mutable_mem_response()->set_success(false);
         return false;
     }
@@ -388,6 +389,15 @@ std::shared_ptr<IKVCacheConnectorCoordinator> KVCacheManager::connectorCoordinat
 
 std::shared_ptr<KVCacheConnectorCoordinator> KVCacheManager::connectorCoordinator() const {
     return connector_coordinator_;
+}
+
+std::shared_ptr<KVCacheResourceV1> KVCacheManager::incrKVCacheRef(const KVCacheResourceV1& kvcache_resource,
+                                                                  const CacheKeysType&     cache_keys) {
+    if (!allocator_) {
+        RTP_LLM_LOG_WARNING("incrKVCacheRef failed, allocator is null");
+        return nullptr;
+    }
+    return allocator_->incrKVCacheRef(kvcache_resource, cache_keys);
 }
 
 }  // namespace rtp_llm

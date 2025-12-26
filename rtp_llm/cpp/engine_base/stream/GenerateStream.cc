@@ -1088,6 +1088,7 @@ bool GenerateStream::asyncLoadCache() {
         return false;
     }
 
+    RTP_LLM_LOG_INFO("stream [%ld] async load cache", streamId());
     if (!stream_cache_resource_->asyncLoadCache()) {
         return false;
     }

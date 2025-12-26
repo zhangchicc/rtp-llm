@@ -20,6 +20,7 @@ P2PConnectorScheduler::~P2PConnectorScheduler() {
 }
 
 bool P2PConnectorScheduler::init() {
+    RTP_LLM_LOG_INFO("P2PConnectorScheduler init start");
     // init tp broadcast client
     tp_broadcast_client_ = std::make_shared<TPBroadcastClient>(runtime_config_.worker_grpc_addrs);
     if (!tp_broadcast_client_) {
@@ -57,6 +58,12 @@ P2PConnectorScheduler::asyncRead(const std::shared_ptr<KVCacheResourceV1>& resou
                                  uint32_t                                  prefill_port,
                                  int64_t                                   deadline_ms,
                                  const std::shared_ptr<ICompleteTokenIds>& complete_token_ids) {
+    RTP_LLM_LOG_INFO(
+        "P2PConnectorScheduler asyncRead start, request_id: %ld, unique_key: %s, prefill_ip: %s, prefill_port: %u",
+        request_id,
+        unique_key.c_str(),
+        prefill_ip.c_str(),
+        prefill_port);
     auto collector = std::make_shared<P2PConnectorClientSchedulerMetricsCollector>(metrics_reporter_);
     if (!resource) {
         RTP_LLM_LOG_WARNING("P2PConnectorScheduler asyncRead: resource is null");
@@ -95,15 +102,25 @@ P2PConnectorScheduler::asyncRead(const std::shared_ptr<KVCacheResourceV1>& resou
         std::make_shared<P2PConnectorAsyncReadContext>(resource, tp_sync_result, server_call_result, collector);
     checker_->addContext(async_context);
 
+    RTP_LLM_LOG_INFO(
+        "P2PConnectorScheduler asyncRead end, request_id: %ld, unique_key: %s", request_id, unique_key.c_str());
     return async_context;
 }
 
-grpc::Status
-P2PConnectorScheduler::handleRead(const std::shared_ptr<KVCacheResourceV1>&            resource,
-                                  const std::string&                                   unique_key,
-                                  int64_t                                              request_id,
-                                  const std::vector<std::pair<std::string, uint32_t>>& decode_transfer_servers,
-                                  int64_t                                              deadline_ms) {
+bool P2PConnectorScheduler::handleRead(const std::shared_ptr<KVCacheResourceV1>&            resource,
+                                       const std::string&                                   unique_key,
+                                       int64_t                                              request_id,
+                                       const std::vector<std::pair<std::string, uint32_t>>& decode_transfer_servers,
+                                       int64_t                                              deadline_ms) {
+    RTP_LLM_LOG_INFO(
+        "P2PConnectorScheduler handleRead start, request_id: %ld, unique_key: %s, decode_transfer_servers_size: %zu",
+        request_id,
+        unique_key.c_str(),
+        decode_transfer_servers.size());
+    if (!resource) {
+        RTP_LLM_LOG_WARNING("P2PConnectorScheduler handleRead: resource is null");
+        return false;
+    }
     int64_t start_time_us      = currentTimeUs();
     auto    collector          = std::make_shared<P2PConnectorServerSchedulerMetricsCollector>();
     auto    report_metric_func = [start_time_us, collector, metrics_reporter = metrics_reporter_](bool success) {
@@ -118,9 +135,10 @@ P2PConnectorScheduler::handleRead(const std::shared_ptr<KVCacheResourceV1>&     
     // convert resource to layer cache buffers
     auto layer_cache_buffers = LayerCacheBufferUtil::convert(*resource, 0);
     if (layer_cache_buffers.empty()) {
-        RTP_LLM_LOG_WARNING("P2PConnectorScheduler handleWrite: layer_cache_buffers is empty");
+        RTP_LLM_LOG_WARNING("P2PConnectorScheduler handleRead: layer_cache_buffers is empty, request_id: %ld",
+                            request_id);
         report_metric_func(false);
-        return grpc::Status(grpc::StatusCode::INTERNAL, "layer_cache_buffers is empty");
+        return false;
     }
 
     // broadcast to all TP workers with decode transfer servers
@@ -131,9 +149,9 @@ P2PConnectorScheduler::handleRead(const std::shared_ptr<KVCacheResourceV1>&     
                                                   deadline_ms,
                                                   P2PConnectorBroadcastType::HANDLE_READ);
     if (!result) {
-        RTP_LLM_LOG_WARNING("P2PConnectorScheduler handleWrite: broadcast failed");
+        RTP_LLM_LOG_WARNING("P2PConnectorScheduler handleRead: broadcast failed, request_id: %ld", request_id);
         report_metric_func(false);
-        return grpc::Status(grpc::StatusCode::INTERNAL, "broadcast failed");
+        return false;
     }
 
     // wait for broadcast to complete (sync call)
@@ -144,12 +162,13 @@ P2PConnectorScheduler::handleRead(const std::shared_ptr<KVCacheResourceV1>&     
     report_metric_func(result->success());
 
     if (!result->success()) {
-        RTP_LLM_LOG_WARNING("P2PConnectorScheduler handleWrite: broadcast result failed");
-        return grpc::Status(grpc::StatusCode::INTERNAL, "broadcast result failed");
+        RTP_LLM_LOG_WARNING("P2PConnectorScheduler handleRead: broadcast result failed, request_id: %ld", request_id);
+        return false;
     }
 
-    RTP_LLM_LOG_INFO("P2PConnectorScheduler handleWrite: success, request_id: %ld", request_id);
-    return grpc::Status::OK;
+    RTP_LLM_LOG_INFO(
+        "P2PConnectorScheduler handleRead end, request_id: %ld, unique_key: %s", request_id, unique_key.c_str());
+    return true;
 }
 
 }  // namespace rtp_llm

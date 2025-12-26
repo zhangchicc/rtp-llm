@@ -235,3 +235,9 @@ private:
 #define RTP_LLM_STACKTRACE_LOG_WARNING(...) RTP_LLM_STACKTRACE_LOG(alog::LOG_LEVEL_WARN, __VA_ARGS__)
 #define RTP_LLM_STACKTRACE_LOG_ERROR(...) RTP_LLM_STACKTRACE_LOG(alog::LOG_LEVEL_ERROR, __VA_ARGS__)
 #define RTP_LLM_STACKTRACE_LOG_EXCEPTION(ex, ...) rtp_llm::Logger::getStackTraceLogger().log(ex, ##__VA_ARGS__)
+
+#define RTP_LLM_ENGINE_LOG_FLUSH()                                                                                     \
+    do {                                                                                                               \
+        auto& logger = rtp_llm::Logger::getEngineLogger();                                                             \
+        logger.flush();                                                                                                \
+    } while (0)

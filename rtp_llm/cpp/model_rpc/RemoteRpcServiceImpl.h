@@ -23,12 +23,15 @@ public:
                                     const GenerateInputPB*                 request,
                                     grpc::ServerWriter<GenerateOutputsPB>* writer) override {
         if (decode_entrance_) {
-            if (!decode_server_new2_) {
+            if (decode_server_new2_) {
+                return decode_server_new2_->GenerateStreamCall(context, request, writer);
+            } else if (prefill_server_new2_) {
+                return prefill_server_new2_->GenerateStreamCall(context, request, writer);
+            } else {
                 auto error_msg = "server not implement GenerateStreamCall";
                 RTP_LLM_LOG_ERROR(error_msg);
                 return grpc::Status(grpc::StatusCode::INTERNAL, error_msg);
             }
-            return decode_server_new2_->GenerateStreamCall(context, request, writer);
         }
 
         if (!prefill_server_) {

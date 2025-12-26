@@ -37,8 +37,6 @@ FusedAsyncReadContext::FusedAsyncReadContext(const std::shared_ptr<FusedAsyncCon
                                              const std::shared_ptr<KVCacheConnectorMeta>& meta):
     fused_match_context_(fused_match_context), resource_(resource), meta_(meta) {}
 
-FusedAsyncReadContext::~FusedAsyncReadContext() {}
-
 bool FusedAsyncReadContext::done() const {
     if (!fused_match_context_) {
         return true;
@@ -87,7 +85,7 @@ KVCacheConnectorCoordinator::~KVCacheConnectorCoordinator() {
     while (true) {
         {
             std::lock_guard<std::mutex> lock(update_mutex_);
-            if (fused_async_read_context_list_.empty() && fused_async_write_context_list_.empty()) {
+            if (match_context_list_.empty() && read_context_list_.empty() && write_context_list_.empty()) {
                 break;
             }
         }
@@ -104,11 +102,13 @@ KVCacheConnectorCoordinator::~KVCacheConnectorCoordinator() {
 }
 
 bool KVCacheConnectorCoordinator::init() {
+    bool inited = false;
     if (kv_cache_config_.memory_block_cache_size_mb > 0) {
         if (!initMemoryConnector()) {
             RTP_LLM_LOG_ERROR("init memory connector failed");
             return false;
         }
+        inited = true;
     }
 
     if (pd_sep_config_.role_type == RoleType::PREFILL || pd_sep_config_.role_type == RoleType::DECODE) {
@@ -116,7 +116,14 @@ bool KVCacheConnectorCoordinator::init() {
             RTP_LLM_LOG_ERROR("init p2p connector failed");
             return false;
         }
+        inited = true;
     }
+
+    if (!inited) {
+        RTP_LLM_LOG_INFO("connector coordinator is not initialized");
+        return true;
+    }
+
     if (!initUpdateThread()) {
         return false;
     }
@@ -131,7 +138,15 @@ KVCacheConnectorCoordinator::asyncRead(const KVCacheResourceV1&                 
         return nullptr;
     }
 
-    auto resource_ptr = allocator_->incrKVCacheRef(resource, resource.cacheKeys());
+    auto incr_resource_ptr = allocator_->incrKVCacheRef(resource, resource.cacheKeys());
+    if (!incr_resource_ptr) {
+        return nullptr;
+    }
+    std::shared_ptr<KVCacheResourceV1> resource_ptr(
+        incr_resource_ptr.get(),
+        [allocator = allocator_, incr_resource_ptr = incr_resource_ptr](KVCacheResourceV1* resource) {
+            allocator->decrKVCacheRef(*resource);
+        });
 
     std::vector<std::shared_ptr<AsyncContext>> contexts;
     contexts.reserve(connectors_.size());
@@ -146,9 +161,15 @@ KVCacheConnectorCoordinator::asyncRead(const KVCacheResourceV1&                 
             }
         }
         if (type == ConnectorType::P2P) {
-            auto match_context = connector->asyncMatch(resource_ptr, meta);
-            if (match_context) {
-                contexts.emplace_back(match_context);
+            if (pd_sep_config_.role_type == RoleType::DECODE) {
+                auto match_context = connector->asyncMatch(resource_ptr, meta);
+                if (match_context) {
+                    contexts.emplace_back(match_context);
+                }
+            } else if (pd_sep_config_.role_type == RoleType::PREFILL) {
+                // prefill will hold the resource
+                p2p_connector_->addResource(
+                    meta->unique_key, meta->request_id, meta->complete_token_ids, resource_ptr, meta->deadline_ms);
             }
         }
     }
@@ -156,16 +177,12 @@ KVCacheConnectorCoordinator::asyncRead(const KVCacheResourceV1&                 
         return nullptr;
     }
 
-    auto fused_match_context = std::make_shared<FusedAsyncContext>(contexts);
-    auto deleter             = [allocator = allocator_, resource_ptr](FusedAsyncReadContext* context) {
-        allocator->decrKVCacheRef(*resource_ptr);
-        delete context;
-    };
+    auto                                   fused_match_context = std::make_shared<FusedAsyncContext>(contexts);
     std::shared_ptr<FusedAsyncReadContext> fused_read_context(
-        new FusedAsyncReadContext(fused_match_context, resource_ptr, meta), deleter);
+        new FusedAsyncReadContext(fused_match_context, resource_ptr, meta));
     {
         std::lock_guard<std::mutex> lock(update_mutex_);
-        fused_async_read_context_list_.push_back(fused_read_context);
+        match_context_list_.push_back(fused_read_context);  // 先放入 match 队列
     }
     return fused_read_context;
 }
@@ -178,7 +195,16 @@ KVCacheConnectorCoordinator::asyncWrite(const KVCacheResourceV1&                
         return nullptr;
     }
 
-    auto resource_ptr = allocator_->incrKVCacheRef(resource, resource.cacheKeys());
+    RTP_LLM_LOG_INFO("asyncWrite, resource: %p, meta: %p", &resource, meta.get());
+
+    auto incr_resource_ptr = allocator_->incrKVCacheRef(resource, resource.cacheKeys());
+    if (!incr_resource_ptr) {
+        return nullptr;
+    }
+    std::shared_ptr<KVCacheResourceV1> resource_ptr(
+        incr_resource_ptr.get(), [allocator = allocator_, incr_resource_ptr](KVCacheResourceV1* resource) {
+            allocator->decrKVCacheRef(*resource);
+        });
 
     std::vector<std::shared_ptr<AsyncContext>> write_contexts;
     for (const auto& [type, connector] : connectors_) {
@@ -195,14 +221,10 @@ KVCacheConnectorCoordinator::asyncWrite(const KVCacheResourceV1&                
     if (write_contexts.empty()) {
         return nullptr;
     }
-    auto deleter = [allocator = allocator_, resource_ptr](FusedAsyncContext* context) {
-        allocator->decrKVCacheRef(*resource_ptr);
-        delete context;
-    };
-    std::shared_ptr<FusedAsyncContext> fused_write_context(new FusedAsyncContext(std::move(write_contexts)), deleter);
+    std::shared_ptr<FusedAsyncContext> fused_write_context(new FusedAsyncContext(std::move(write_contexts)));
     {
         std::lock_guard<std::mutex> lock(update_mutex_);
-        fused_async_write_context_list_.push_back(fused_write_context);
+        write_context_list_.push_back(fused_write_context);  // 放入 write 队列
     }
     return fused_write_context;
 }
@@ -216,7 +238,7 @@ KVCacheConnectorCoordinator::asyncWriteByLayer(int                              
         return nullptr;
     }
 
-    auto resource_ptr = allocator_->incrKVCacheRef(resource, resource.cacheKeys());
+    std::shared_ptr<KVCacheResourceV1> resource_ptr = std::make_shared<KVCacheResourceV1>(resource);
 
     std::vector<std::shared_ptr<AsyncContext>> write_contexts;
     for (const auto& [type, connector] : connectors_) {
@@ -233,14 +255,10 @@ KVCacheConnectorCoordinator::asyncWriteByLayer(int                              
     if (write_contexts.empty()) {
         return nullptr;
     }
-    auto deleter = [allocator = allocator_, resource_ptr](FusedAsyncContext* context) {
-        allocator->decrKVCacheRef(*resource_ptr);
-        delete context;
-    };
-    std::shared_ptr<FusedAsyncContext> fused_write_context(new FusedAsyncContext(std::move(write_contexts)), deleter);
+    std::shared_ptr<FusedAsyncContext> fused_write_context(new FusedAsyncContext(std::move(write_contexts)));
     {
         std::lock_guard<std::mutex> lock(update_mutex_);
-        fused_async_write_context_list_.push_back(fused_write_context);
+        write_context_list_.push_back(fused_write_context);  // 放入 write 队列
     }
     return fused_write_context;
 }
@@ -288,52 +306,76 @@ bool KVCacheConnectorCoordinator::initUpdateThread() {
 
 void KVCacheConnectorCoordinator::updateOnce() {
     std::lock_guard<std::mutex> lock(update_mutex_);
-    for (auto it = fused_async_read_context_list_.begin(); it != fused_async_read_context_list_.end();) {
+
+    // 1. 先处理 read_context 和 write_context，检查如果 done 就移除
+    for (auto it = read_context_list_.begin(); it != read_context_list_.end();) {
         auto fused_read_context = *it;
         if (fused_read_context->done()) {
-            it = fused_async_read_context_list_.erase(it);
+            it = read_context_list_.erase(it);
+            RTP_LLM_LOG_INFO("read context done, remove from read context list, size: %zu", read_context_list_.size());
             continue;
-        }
-        if (fused_read_context->fusedMatchContext()->done() && fused_read_context->fusedReadContext() == nullptr) {
-            if (!fused_read_context->fusedMatchContext()->success()) {
-                // match failed, cancel
-                it = fused_async_read_context_list_.erase(it);
-                continue;
-            }
-            // match success, start read
-            int  reuse_num      = fused_read_context->resource()->reuseBlocksNum();
-            auto match_contexts = fused_read_context->fusedMatchContext()->contexts();
-            std::vector<std::shared_ptr<AsyncContext>> connector_read_contexts;
-            for (int i = 0; i < match_contexts.size(); i++) {
-                auto match_context = std::dynamic_pointer_cast<AsyncMatchContext>(match_contexts.at(i));
-                if (!match_context) {
-                    continue;
-                }
-                if (match_context->matchedBlockCount() <= reuse_num) {
-                    continue;
-                }
-                auto connector = connectors_.at(match_context->connectorType());
-                auto connector_read_context =
-                    connector->asyncRead(fused_read_context->resource(),
-                                         fused_read_context->meta(),
-                                         match_context,
-                                         {reuse_num, match_context->matchedBlockCount() - reuse_num});
-                if (connector_read_context) {
-                    connector_read_contexts.emplace_back(connector_read_context);
-                    reuse_num = match_context->matchedBlockCount();
-                }
-            }
-            fused_read_context->setFusedReadContext(std::make_shared<FusedAsyncContext>(connector_read_contexts));
         }
         it++;
     }
-    for (auto it = fused_async_write_context_list_.begin(); it != fused_async_write_context_list_.end();) {
+
+    for (auto it = write_context_list_.begin(); it != write_context_list_.end();) {
         auto fused_write_context = *it;
         if (fused_write_context->done()) {
-            it = fused_async_write_context_list_.erase(it);
+            RTP_LLM_LOG_INFO("write context done, remove from write context list, context use_count: %zu, size: %zu",
+                             fused_write_context.use_count(),
+                             write_context_list_.size());
+            it = write_context_list_.erase(it);
             continue;
         }
         it++;
+    }
+
+    // 2. 然后检查 match_context 队列，如果有 match done 就调用 asyncRead 然后放到 read 队列
+    for (auto it = match_context_list_.begin(); it != match_context_list_.end();) {
+        auto fused_read_context = *it;
+        if (!fused_read_context->fusedMatchContext()) {
+            // 无效的 match context，移除
+            it = match_context_list_.erase(it);
+            continue;
+        }
+        if (!fused_read_context->fusedMatchContext()->done()) {
+            // match 还未完成，跳过
+            it++;
+            continue;
+        }
+        // match 已完成
+        if (!fused_read_context->fusedMatchContext()->success()) {
+            // match 失败，移除
+            it = match_context_list_.erase(it);
+            continue;
+        }
+        // match 成功，启动 read
+        int                                        reuse_num      = fused_read_context->resource()->reuseBlocksNum();
+        auto                                       match_contexts = fused_read_context->fusedMatchContext()->contexts();
+        std::vector<std::shared_ptr<AsyncContext>> connector_read_contexts;
+        for (size_t i = 0; i < match_contexts.size(); i++) {
+            auto match_context = std::dynamic_pointer_cast<AsyncMatchContext>(match_contexts.at(i));
+            if (!match_context) {
+                continue;
+            }
+            if (match_context->matchedBlockCount() <= reuse_num) {
+                continue;
+            }
+            auto connector = connectors_.at(match_context->connectorType());
+            auto connector_read_context =
+                connector->asyncRead(fused_read_context->resource(),
+                                     fused_read_context->meta(),
+                                     match_context,
+                                     {reuse_num, match_context->matchedBlockCount() - reuse_num});
+            if (connector_read_context) {
+                connector_read_contexts.emplace_back(connector_read_context);
+                reuse_num = match_context->matchedBlockCount();
+            }
+        }
+        fused_read_context->setFusedReadContext(std::make_shared<FusedAsyncContext>(connector_read_contexts));
+        // 从 match 队列移除，放入 read 队列
+        it = match_context_list_.erase(it);
+        read_context_list_.push_back(fused_read_context);
     }
 }
 
@@ -386,6 +428,7 @@ bool KVCacheConnectorCoordinator::handleRead(const P2PConnectorStartLoadRequestP
 void KVCacheConnectorCoordinator::cacheStream(const std::string&                        unique_key,
                                               int64_t                                   request_id,
                                               const std::shared_ptr<ICompleteTokenIds>& complete_token_ids,
+                                              const std::shared_ptr<KVCacheResourceV1>& kv_cache_resource,
                                               int64_t                                   deadline_ms) {
     if (stop_.load()) {
         RTP_LLM_LOG_WARNING("cacheStream failed, coordinator is stopped");
@@ -396,7 +439,7 @@ void KVCacheConnectorCoordinator::cacheStream(const std::string&                
         RTP_LLM_LOG_WARNING("cacheStream failed, p2p connector is null");
         return;
     }
-    p2p_connector_->addResource(unique_key, request_id, complete_token_ids, deadline_ms);
+    p2p_connector_->addResource(unique_key, request_id, complete_token_ids, kv_cache_resource, deadline_ms);
 }
 
 ICompleteTokenIdImpl::ICompleteTokenIdImpl(const std::shared_ptr<CompleteTokenIds>& complete_token_ids):

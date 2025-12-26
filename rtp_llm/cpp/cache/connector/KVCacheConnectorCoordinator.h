@@ -56,6 +56,7 @@ public:
     void cacheStream(const std::string&                        unique_key,
                      int64_t                                   request_id,
                      const std::shared_ptr<ICompleteTokenIds>& complete_token_ids,
+                     const std::shared_ptr<KVCacheResourceV1>& kv_cache_resource,
                      int64_t                                   deadline_ms);
 
 private:
@@ -83,8 +84,9 @@ private:
     std::map<ConnectorType, std::shared_ptr<KVCacheConnector>> connectors_;
 
     mutable std::mutex                                update_mutex_;
-    std::list<std::shared_ptr<FusedAsyncReadContext>> fused_async_read_context_list_;
-    std::list<std::shared_ptr<FusedAsyncContext>>     fused_async_write_context_list_;
+    std::list<std::shared_ptr<FusedAsyncReadContext>> match_context_list_;  // match 上下文队列
+    std::list<std::shared_ptr<FusedAsyncReadContext>> read_context_list_;   // read 上下文队列
+    std::list<std::shared_ptr<FusedAsyncContext>>     write_context_list_;  // write 上下文队列
     autil::LoopThreadPtr                              update_thread_;
     const int                                         update_interval_ms_{1};
     std::atomic<bool>                                 stop_{false};

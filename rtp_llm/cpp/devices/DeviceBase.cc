@@ -152,8 +152,12 @@ void DeviceBase::setCacheStore(std::shared_ptr<rtp_llm::CacheStore> cache_store)
 
 void DeviceBase::writeCacheStore(const WriteCacheParams& params) {
     if (params.cache_store_inputs.has_value() && params.kv_cache.has_value()) {
-        writeCacheStore(params.cache_store_inputs.value(), params.kv_cache.value(), params.mla_kvcache);
-        writeCacheToConnector(params);
+        if (cache_store_) {
+            writeCacheStore(params.cache_store_inputs.value(), params.kv_cache.value(), params.mla_kvcache);
+        }
+        if (connector_coordinator_) {
+            writeCacheToConnector(params);
+        }
     }
 }
 
@@ -233,12 +237,6 @@ void DeviceBase::setConnectorCoordinator(std::shared_ptr<IKVCacheConnectorCoordi
 }
 
 void DeviceBase::writeCacheToConnector(const WriteCacheParams& params) {
-    if (!connector_coordinator_ || !params.kv_cache.has_value() || !params.cache_store_inputs.has_value()) {
-        RTP_LLM_LOG_WARNING(
-            "DeviceBase writeCacheToConnector failed: connector_coordinator is null or kv_cache or cache_store_inputs is null");
-        return;
-    }
-
     auto& param = params.cache_store_inputs.value();
     if (param.warmup) {
         RTP_LLM_LOG_DEBUG("is warmup, so ignore writeCacheStore");
@@ -253,6 +251,9 @@ void DeviceBase::writeCacheToConnector(const WriteCacheParams& params) {
     const auto max_blocks_per_batch = param.host_kv_cache_offset->shape()[1];
 
     // RTP_LLM_LOG_INFO("DeviceBase writeKVCacheConnector start, context_batch_size: %ld", param.context_batch_size);
+    RTP_LLM_CHECK_WITH_INFO(param.context_batch_size == param.request_pd_separation->size(), "size not same");
+    RTP_LLM_CHECK_WITH_INFO(param.context_batch_size == param.request_id->size(),
+                            "context batch size and request id size is not same");
 
     for (size_t batch_id = 0; batch_id < param.context_batch_size; batch_id++) {
         if (*(param.request_pd_separation->dataWithOffset<bool>(batch_id)) == false) {

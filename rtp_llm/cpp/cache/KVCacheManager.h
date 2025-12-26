@@ -81,6 +81,10 @@ public:
     std::shared_ptr<IKVCacheConnectorCoordinator> connectorCoordinatorInterface() const;
     std::shared_ptr<KVCacheConnectorCoordinator>  connectorCoordinator() const;
 
+    // Increase reference count for KV cache resource
+    std::shared_ptr<KVCacheResourceV1> incrKVCacheRef(const KVCacheResourceV1& kvcache_resource,
+                                                      const CacheKeysType&     cache_keys);
+
     // broadcast tp for single rank
     bool broadcastTp(const BroadcastTpRequestPB& request, BroadcastTpResponsePB& response);
     bool handleRead(const P2PConnectorStartLoadRequestPB& request, P2PConnectorStartLoadResponsePB& response);

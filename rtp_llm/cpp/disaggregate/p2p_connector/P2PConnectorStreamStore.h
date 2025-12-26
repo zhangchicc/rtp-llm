@@ -9,6 +9,7 @@
 #include <vector>
 #include "autil/LoopThread.h"
 #include "rtp_llm/cpp/cache/connector/KVCacheConnector.h"
+#include "rtp_llm/cpp/cache/BatchKVCacheResource.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorMetrics.h"
 
 namespace rtp_llm {
@@ -17,7 +18,8 @@ namespace rtp_llm {
 struct P2PConnectorResourceEntry {
     int64_t                            request_id;          // 请求 ID
     std::shared_ptr<ICompleteTokenIds> complete_token_ids;  // 完整的 token ids
-    int64_t                            deadline_us;         // 过期时间
+    std::shared_ptr<KVCacheResourceV1> kv_cache_resource;   // KV cache 资源引用，用于保持引用计数
+    int64_t                            deadline_ms;         // 过期时间
     int64_t                            add_time_us;         // 添加时间
 };
 
@@ -38,7 +40,8 @@ public:
     void addResource(const std::string&                        unique_key,
                      int64_t                                   request_id,
                      const std::shared_ptr<ICompleteTokenIds>& complete_token_ids,
-                     int64_t                                   deadline_us);
+                     const std::shared_ptr<KVCacheResourceV1>& kv_cache_resource,
+                     int64_t                                   deadline_ms);
 
     /// @brief 获取并移除资源条目
     std::shared_ptr<P2PConnectorResourceEntry> stealResource(const std::string& unique_key);

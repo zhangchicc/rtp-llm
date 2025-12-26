@@ -190,9 +190,9 @@ void P2PConnectorPerfTestServer::processRequest(int64_t request_id) {
     if (config_.tp_size > 0) {
         auto connector = servers_[0]->getConnector();
         if (connector) {
-            // Create mock resource data (nullptr for complete_token_ids in perf test)
+            // Create mock resource data (nullptr for complete_token_ids and kv_cache_resource in perf test)
             int64_t deadline_us = currentTimeUs() + config_.deadline_ms * 1000;
-            connector->addResource(unique_key, request_id, nullptr, deadline_us);
+            connector->addResource(unique_key, request_id, nullptr, nullptr, deadline_us);
         }
     }
 

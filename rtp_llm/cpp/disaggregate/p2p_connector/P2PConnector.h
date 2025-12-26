@@ -55,7 +55,8 @@ public:
     void addResource(const std::string&                        unique_key,
                      int64_t                                   request_id,
                      const std::shared_ptr<ICompleteTokenIds>& complete_token_ids,
-                     int64_t                                   deadline_us);
+                     const std::shared_ptr<KVCacheResourceV1>& kv_cache_resource,
+                     int64_t                                   deadline_ms);
 
 private:
     const KVCacheConfig&                 cache_config_;

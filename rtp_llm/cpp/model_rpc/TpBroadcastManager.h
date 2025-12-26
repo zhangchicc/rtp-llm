@@ -142,7 +142,8 @@ public:
     }
 
     std::shared_ptr<TPBroadcastResult> broadcast(const std::vector<std::shared_ptr<BroadcastTpRequestPB>>& requests,
-                                                 int timeout_ms) const {
+                                                 int64_t timeout_ms) const {
+        RTP_LLM_LOG_INFO("timeout is %ld", timeout_ms);
         const auto worker_size = worker_addrs_.size();
         if (requests.size() != worker_size) {
             RTP_LLM_LOG_WARNING(

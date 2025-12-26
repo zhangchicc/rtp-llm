@@ -1,6 +1,7 @@
 #include "rtp_llm/cpp/disaggregate/p2p_connector/PrefillWorkerLoadContext.h"
 
 #include "rtp_llm/cpp/utils/TimeUtil.h"
+#include "rtp_llm/cpp/utils/Logger.h"
 
 namespace rtp_llm {
 
@@ -12,6 +13,12 @@ PrefillWorkerLoadContext::PrefillWorkerLoadContext(int64_t            request_id
     for (int i = 0; i < transfer_count_; i++) {
         need_transfer_ids_.insert(i);
     }
+    RTP_LLM_LOG_INFO(
+        "PrefillWorkerLoadContext constructor, request_id: %ld, unique_key: %s, deadline_ms: %ld, transfer_count: %d",
+        request_id,
+        unique_key.c_str(),
+        deadline_ms,
+        transfer_count);
 }
 
 bool PrefillWorkerLoadContext::done() const {
@@ -45,6 +52,7 @@ bool PrefillWorkerLoadContext::startTransfer(int id) {
     }
     need_transfer_ids_.erase(iter);
     transferring_ids_.insert(id);
+    RTP_LLM_LOG_INFO("PrefillWorkerLoadContext startTransfer success, id: %d", id);
     return true;
 }
 
@@ -52,10 +60,12 @@ void PrefillWorkerLoadContext::notifyDone(int id, bool success) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!success) {
         all_success_ = false;
+        RTP_LLM_LOG_INFO("PrefillWorkerLoadContext notifyDone failed, id: %d", id);
     }
     if (transferring_ids_.find(id) == transferring_ids_.end()) {
         return;
     }
+    RTP_LLM_LOG_INFO("PrefillWorkerLoadContext notifyDone success, id: %d", id);
     transferring_ids_.erase(id);
     transferred_ids_.insert(id);
 }

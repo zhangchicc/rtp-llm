@@ -11,9 +11,7 @@ namespace rtp_llm {
 
 void StreamCacheResource::init(int batch_size) {
     batch_resource_->resetBatchSize(batch_size);
-    RTP_LLM_CHECK_WITH_INFO(resource_context_.cache_manager != nullptr, "cache manager is nullptr!");
-    int layer_num = resource_context_.cache_manager->cacheConfig().layer_num;
-    batch_resource_->initGroups(1, layer_num);
+    batch_resource_->initGroups(1, resource_context_.layer_num);
     batch_resource_->enable_reuse_cache = reuseCache();
 }
 
@@ -195,7 +193,7 @@ bool StreamCacheResource::asyncLoadCache() {
     meta->unique_key         = stream_->uniqueKey();
     meta->prefill_ip         = stream_->prefillAddr().first;
     meta->prefill_port       = stream_->prefillAddr().second;
-    meta->deadline_ms        = stream_->deadlineUs();
+    meta->deadline_ms        = stream_->deadlineUs() / 1000;
     meta->complete_token_ids = std::make_shared<ICompleteTokenIdImpl>(stream_->completeTokenIdsPtr());
 
     KVCacheConnectorControlParams control_params;
@@ -236,7 +234,7 @@ bool StreamCacheResource::asyncStoreCache() {
     }
     auto meta         = std::make_shared<KVCacheConnectorMeta>();
     meta->request_id  = stream_->streamId();
-    meta->deadline_ms = stream_->deadlineUs();
+    meta->deadline_ms = stream_->deadlineUs() / 1000;
 
     KVCacheConnectorControlParams control_params;
     control_params.enable_memory_cache = enableMemoryBlockCache();

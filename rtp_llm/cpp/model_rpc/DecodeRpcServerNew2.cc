@@ -84,18 +84,15 @@ grpc::Status DecodeRpcServerNew2::GenerateStreamCall(grpc::ServerContext*       
             prefill_server_caller_->callPrefill(request, ip, port, stream->uniqueKey(), stream->deadlineUs());
     }
 
-    auto local_ret = LocalRpcServer::GenerateStreamCall(server_context, request, response_writer);
-    if (!local_ret.ok()) {
-        RTP_LLM_LOG_ERROR("decode rpc server new2 generate stream call failed, err: %s",
-                          local_ret.error_message().c_str());
-        return local_ret;
-    }
+    generate_context.error_status =
+        pollStreamOutput(server_context, generate_context.request_key, response_writer, generate_context.getStream());
+    meta_->dequeue(generate_context.request_id, generate_context.getStream());
 
     // likely prefill done before local generate done
     if (prefill_context) {
         prefill_context->waitPrefillDone();
     }
-    return grpc::Status::OK;
+    return generate_context.error_status;
 }
 
 }  // namespace rtp_llm

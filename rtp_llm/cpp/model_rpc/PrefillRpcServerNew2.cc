@@ -22,17 +22,22 @@ grpc::Status PrefillRpcServerNew2::init(const EngineInitParams&                 
         RTP_LLM_LOG_WARNING("prefill rpc server new2 init failed, connector coordinator is null");
         return grpc::Status(grpc::StatusCode::INTERNAL, "connector coordinator is null");
     }
+    auto device = engine_->getDevice();
+    if (!device) {
+        RTP_LLM_LOG_WARNING("prefill rpc server new2 init failed, device is null");
+        return grpc::Status(grpc::StatusCode::INTERNAL, "device is null");
+    }
+    device->setConnectorCoordinator(connector_coordinator);
     return grpc::Status::OK;
 }
 
 grpc::Status PrefillRpcServerNew2::GenerateStreamCall(grpc::ServerContext*                   server_context,
                                                       const GenerateInputPB*                 request,
                                                       grpc::ServerWriter<GenerateOutputsPB>* response_writer) {
-    auto pd_separation = request->generate_config().max_new_tokens() > 1 && request->generate_config().num_beams() <= 1
-                         && request->generate_config().variable_num_beams().size() == 0
-                         && request->generate_config().num_return_sequences() <= 1
-                         && request->generate_config().can_use_pd_separation()
-                         && request->generate_config().unique_key().empty();
+    auto pd_separation =
+        request->generate_config().num_beams() <= 1 && request->generate_config().variable_num_beams().size() == 0
+        && request->generate_config().num_return_sequences() <= 1 && request->generate_config().can_use_pd_separation()
+        && !request->generate_config().unique_key().empty();
     if (!pd_separation) {
         return LocalRpcServer::GenerateStreamCall(server_context, request, response_writer);
     }
@@ -44,6 +49,13 @@ grpc::Status PrefillRpcServerNew2::GenerateStreamCall(grpc::ServerContext*      
     auto generate_context =
         GenerateContext(request_id, request->generate_config().timeout_ms(), server_context, metrics_reporter_, meta_);
     auto input = QueryConverter::transQuery(request);
+    // TODO: diff is this
+    input->generate_config->pd_separation = true;
+    if (engine_->isMTPEagle()) {
+        input->generate_config->force_disable_sp_run = false;
+    } else {
+        input->generate_config->force_disable_sp_run = true;
+    }
 
     // need to check client has buffer at first
     if (mm_processor_ != nullptr && input->multimodal_inputs) {
@@ -61,15 +73,6 @@ grpc::Status PrefillRpcServerNew2::GenerateStreamCall(grpc::ServerContext*      
     generate_context.setStream(stream);
 
     RTP_LLM_LOG_DEBUG("request [%ld] enqueue success", request_id);
-
-    // cache stream to connector
-    auto kv_cache_manager      = engine_->getCacheManager();
-    auto connector_coordinator = kv_cache_manager->connectorCoordinator();
-    connector_coordinator->cacheStream(stream->uniqueKey(),
-                                       request_id,
-                                       std::make_shared<ICompleteTokenIdImpl>(stream->completeTokenIdsPtr()),
-                                       stream->deadlineUs());
-
     // same as local rpc server generate stream call
     generate_context.error_status =
         pollStreamOutput(server_context, generate_context.request_key, response_writer, generate_context.getStream());

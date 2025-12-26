@@ -5,6 +5,7 @@ namespace rtp_llm {
 
 [[noreturn]] void throwRuntimeError(const char* const file, int const line, std::string const& info) {
     auto error_msg = std::string("[ERROR] ") + info + " Assertion fail: " + file + ":" + std::to_string(line) + " \n";
+    RTP_LLM_ENGINE_LOG_FLUSH();
     fflush(stdout);
     fflush(stderr);
     throw RTP_EXCEPTION(error_msg);

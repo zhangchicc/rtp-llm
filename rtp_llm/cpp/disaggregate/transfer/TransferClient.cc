@@ -241,11 +241,11 @@ void TransferClient::loadToRemote(const std::string&                            
                                           ::google::protobuf::Service::STUB_DOESNT_OWN_CHANNEL);
     stub.transfer(controller, transfer_request.get(), transfer_response.get(), closure);
 
-    RTP_LLM_LOG_INFO("load to remote success, ip: %s, port: %d, unique_key: %s, layer_id: %d",
-                     ip.c_str(),
-                     port,
-                     transfer_request->unique_key().c_str(),
-                     layer_cache_buffer->getLayerId());
+    // RTP_LLM_LOG_INFO("load to remote success, ip: %s, port: %d, unique_key: %s, layer_id: %d",
+    //                  ip.c_str(),
+    //                  port,
+    //                  transfer_request->unique_key().c_str(),
+    //                  layer_cache_buffer->getLayerId());
 }
 
 void TransferClient::transfer(const std::string&                       ip,
@@ -285,11 +285,11 @@ void TransferClient::transfer(const std::string&                       ip,
         return;
     }
 
-    RTP_LLM_LOG_INFO("transfer request success, ip: %s, port: %d, unique_key: %s, layer_id: %d",
-                     ip.c_str(),
-                     port,
-                     transfer_request->unique_key().c_str(),
-                     layer_cache_buffer->getLayerId());
+    // RTP_LLM_LOG_INFO("transfer request success, ip: %s, port: %d, unique_key: %s, layer_id: %d",
+    //                  ip.c_str(),
+    //                  port,
+    //                  transfer_request->unique_key().c_str(),
+    //                  layer_cache_buffer->getLayerId());
 
     // 发送到远程服务器
     loadToRemote(ip, port, layer_cache_buffer, transfer_request, callback2, timeout_ms);
