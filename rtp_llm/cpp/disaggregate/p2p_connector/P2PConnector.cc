@@ -120,9 +120,9 @@ std::shared_ptr<AsyncContext> P2PConnector::asyncWriteByLayer(int               
 
 grpc::Status P2PConnector::handleRead(const P2PConnectorStartLoadRequestPB& request,
                                       P2PConnectorStartLoadResponsePB&      response) {
-    RTP_LLM_LOG_INFO("P2PConnector::handleRead start, unique_key: %s, deadline_ms: %lld",
-                     request.unique_key().c_str(),
-                     request.deadline_ms());
+    RTP_LLM_LOG_DEBUG("P2PConnector::handleRead start, unique_key: %s, deadline_ms: %lld",
+                      request.unique_key().c_str(),
+                      request.deadline_ms());
     // 从 request 中提取参数
     const std::string& unique_key  = request.unique_key();
     int64_t            deadline_ms = request.deadline_ms();
@@ -166,10 +166,9 @@ grpc::Status P2PConnector::handleRead(const P2PConnectorStartLoadRequestPB& requ
         return grpc::Status(grpc::StatusCode::INTERNAL, "worker handleRead failed");
     }
 
-    RTP_LLM_LOG_INFO("P2PConnector::handleRead resource_entry use_count: %zu, resource use_count: %zu",
-                     resource_entry.use_count(),
-                     resource_entry->kv_cache_resource.use_count());
-    RTP_LLM_LOG_INFO("P2PConnector::handleRead end, unique_key: %s, success: %d", unique_key.c_str(), success);
+    RTP_LLM_LOG_DEBUG("P2PConnector::handleRead resource_entry use_count: %zu, resource use_count: %zu",
+                      resource_entry.use_count(),
+                      resource_entry->kv_cache_resource.use_count());
 
     // 获取 first_generate_token_id（最后一个 token）
     int first_token = 0;

@@ -96,7 +96,7 @@ BlockIndicesType BlockPool::malloc(int num_blocks) {
     block_ids.assign(first, last);
     free_block_ids_.erase(first, last);
     requestReference(block_ids);
-    RTP_LLM_LOG_INFO("Block pool malloc %d blocks size: %zu", num_blocks, block_ids.size());
+    RTP_LLM_LOG_DEBUG("Block pool malloc %d blocks size: %zu", num_blocks, block_ids.size());
     return block_ids;
 }
 
@@ -128,7 +128,7 @@ void BlockPool::freeImpl(const BlockIndicesType& block_ids) {
             free_block_count++;
         }
     }
-    RTP_LLM_LOG_INFO("Block pool free %d blocks, free block count: %d", block_ids.size(), free_block_count);
+    RTP_LLM_LOG_DEBUG("Block pool free %d blocks, free block count: %d", block_ids.size(), free_block_count);
 }
 
 void BlockPool::requestReference(BlockIdxType block_idx) {

@@ -58,7 +58,7 @@ P2PConnectorScheduler::asyncRead(const std::shared_ptr<KVCacheResourceV1>& resou
                                  uint32_t                                  prefill_port,
                                  int64_t                                   deadline_ms,
                                  const std::shared_ptr<ICompleteTokenIds>& complete_token_ids) {
-    RTP_LLM_LOG_INFO(
+    RTP_LLM_LOG_DEBUG(
         "P2PConnectorScheduler asyncRead start, request_id: %ld, unique_key: %s, prefill_ip: %s, prefill_port: %u",
         request_id,
         unique_key.c_str(),
@@ -102,7 +102,7 @@ P2PConnectorScheduler::asyncRead(const std::shared_ptr<KVCacheResourceV1>& resou
         std::make_shared<P2PConnectorAsyncReadContext>(resource, tp_sync_result, server_call_result, collector);
     checker_->addContext(async_context);
 
-    RTP_LLM_LOG_INFO(
+    RTP_LLM_LOG_DEBUG(
         "P2PConnectorScheduler asyncRead end, request_id: %ld, unique_key: %s", request_id, unique_key.c_str());
     return async_context;
 }
@@ -112,7 +112,7 @@ bool P2PConnectorScheduler::handleRead(const std::shared_ptr<KVCacheResourceV1>&
                                        int64_t                                              request_id,
                                        const std::vector<std::pair<std::string, uint32_t>>& decode_transfer_servers,
                                        int64_t                                              deadline_ms) {
-    RTP_LLM_LOG_INFO(
+    RTP_LLM_LOG_DEBUG(
         "P2PConnectorScheduler handleRead start, request_id: %ld, unique_key: %s, decode_transfer_servers_size: %zu",
         request_id,
         unique_key.c_str(),
@@ -166,7 +166,7 @@ bool P2PConnectorScheduler::handleRead(const std::shared_ptr<KVCacheResourceV1>&
         return false;
     }
 
-    RTP_LLM_LOG_INFO(
+    RTP_LLM_LOG_DEBUG(
         "P2PConnectorScheduler handleRead end, request_id: %ld, unique_key: %s", request_id, unique_key.c_str());
     return true;
 }

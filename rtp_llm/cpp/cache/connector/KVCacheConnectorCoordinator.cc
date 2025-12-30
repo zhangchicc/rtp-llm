@@ -195,7 +195,7 @@ KVCacheConnectorCoordinator::asyncWrite(const KVCacheResourceV1&                
         return nullptr;
     }
 
-    RTP_LLM_LOG_INFO("asyncWrite, resource: %p, meta: %p", &resource, meta.get());
+    RTP_LLM_LOG_DEBUG("asyncWrite, resource: %p, meta: %p", &resource, meta.get());
 
     auto incr_resource_ptr = allocator_->incrKVCacheRef(resource, resource.cacheKeys());
     if (!incr_resource_ptr) {
@@ -312,7 +312,7 @@ void KVCacheConnectorCoordinator::updateOnce() {
         auto fused_read_context = *it;
         if (fused_read_context->done()) {
             it = read_context_list_.erase(it);
-            RTP_LLM_LOG_INFO("read context done, remove from read context list, size: %zu", read_context_list_.size());
+            RTP_LLM_LOG_DEBUG("read context done, remove from read context list, size: %zu", read_context_list_.size());
             continue;
         }
         it++;
@@ -321,9 +321,9 @@ void KVCacheConnectorCoordinator::updateOnce() {
     for (auto it = write_context_list_.begin(); it != write_context_list_.end();) {
         auto fused_write_context = *it;
         if (fused_write_context->done()) {
-            RTP_LLM_LOG_INFO("write context done, remove from write context list, context use_count: %zu, size: %zu",
-                             fused_write_context.use_count(),
-                             write_context_list_.size());
+            RTP_LLM_LOG_DEBUG("write context done, remove from write context list, context use_count: %zu, size: %zu",
+                              fused_write_context.use_count(),
+                              write_context_list_.size());
             it = write_context_list_.erase(it);
             continue;
         }

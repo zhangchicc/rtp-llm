@@ -36,7 +36,7 @@ P2PConnectorWorker::~P2PConnectorWorker() {
 }
 
 bool P2PConnectorWorker::init(int64_t store_wait_timeout_ms) {
-    RTP_LLM_LOG_INFO("P2PConnectorWorker init start, store_wait_timeout_ms: %ld", store_wait_timeout_ms);
+    RTP_LLM_LOG_DEBUG("P2PConnectorWorker init start, store_wait_timeout_ms: %ld", store_wait_timeout_ms);
     if (!layer_block_convertor_) {
         RTP_LLM_LOG_ERROR("P2PConnectorWorker init failed: layer_block_convertor is null");
         return false;
@@ -108,7 +108,7 @@ bool P2PConnectorWorker::writeByLayer(int                                       
                                       const std::shared_ptr<KVCacheResourceV1>& resource,
                                       int64_t                                   request_id,
                                       DeviceEventPtr                            event) {
-    RTP_LLM_LOG_INFO("P2PConnectorWorker writeByLayer start, request_id: %ld, layer_id: %d", request_id, layer_id);
+    RTP_LLM_LOG_DEBUG("P2PConnectorWorker writeByLayer start, request_id: %ld, layer_id: %d", request_id, layer_id);
     auto collector = std::make_shared<P2PConnectorServerWorkerStoreMetricsCollector>();
 
     auto layer_cache_buffer = LayerCacheBufferUtil::convert(*resource, 0, layer_id);
@@ -126,7 +126,7 @@ bool P2PConnectorWorker::writeByLayer(int                                       
     int64_t deadline_ms = currentTimeMs() + store_wait_timeout_ms_;
     store_wait_context_checker_->addContext(
         StoreWaitContext(request_id, event, layer_cache_buffer, deadline_ms, collector));
-    RTP_LLM_LOG_INFO("P2PConnectorWorker writeByLayer end, request_id: %ld, layer_id: %d", request_id, layer_id);
+    RTP_LLM_LOG_DEBUG("P2PConnectorWorker writeByLayer end, request_id: %ld, layer_id: %d", request_id, layer_id);
     return true;
 }
 
@@ -151,7 +151,7 @@ bool P2PConnectorWorker::handleRead(int64_t                                     
                                     const std::string&                                   unique_key,
                                     int64_t                                              deadline_ms,
                                     const std::vector<std::pair<std::string, uint32_t>>& decode_transfer_servers) {
-    RTP_LLM_LOG_INFO(
+    RTP_LLM_LOG_DEBUG(
         "P2PConnectorWorker handleRead start, request_id: %ld, unique_key: %s, deadline_ms: %ld, decode_transfer_servers_size: %zu",
         request_id,
         unique_key.c_str(),
@@ -170,7 +170,7 @@ bool P2PConnectorWorker::handleRead(int64_t                                     
         }
         return false;
     }
-    RTP_LLM_LOG_INFO("P2PConnectorWorker handleRead asymmetric_tp_contexts size: %zu", asymmetric_tp_contexts.size());
+    RTP_LLM_LOG_DEBUG("P2PConnectorWorker handleRead asymmetric_tp_contexts size: %zu", asymmetric_tp_contexts.size());
 
     auto load_context = load_contexts_->addContext(
         request_id, unique_key, deadline_ms, asymmetric_tp_contexts, model_config_.num_layers);
@@ -185,7 +185,7 @@ bool P2PConnectorWorker::handleRead(int64_t                                     
             need_transfer_layer_ids.insert(id / static_cast<int>(asymmetric_tp_contexts.size()));
         }
         auto [total_layer_num, layer_cache_buffers] = computed_layer_cache_buffer->getBuffers(need_transfer_layer_ids);
-        RTP_LLM_LOG_INFO("P2PConnectorWorker handleRead layer_cache_buffers size: %zu", layer_cache_buffers.size());
+        RTP_LLM_LOG_DEBUG("P2PConnectorWorker handleRead layer_cache_buffers size: %zu", layer_cache_buffers.size());
         for (auto layer_cache_buffer : layer_cache_buffers) {
             for (size_t i = 0; i < asymmetric_tp_contexts.size(); i++) {
                 auto id = layer_cache_buffer->getLayerId() * static_cast<int>(asymmetric_tp_contexts.size())
@@ -234,10 +234,10 @@ bool P2PConnectorWorker::handleRead(int64_t                                     
             load_context->timeout());
     }
 
-    RTP_LLM_LOG_INFO("P2PConnectorWorker handleRead end, request_id: %ld, unique_key: %s, success: %d",
-                     request_id,
-                     unique_key.c_str(),
-                     load_context->success());
+    RTP_LLM_LOG_DEBUG("P2PConnectorWorker handleRead end, request_id: %ld, unique_key: %s, success: %d",
+                      request_id,
+                      unique_key.c_str(),
+                      load_context->success());
     return load_context->success();
 }
 
@@ -245,7 +245,7 @@ bool P2PConnectorWorker::read(int64_t                                           
                               const std::string&                                    unique_key,
                               int64_t                                               deadline_ms,
                               const std::vector<std::shared_ptr<LayerCacheBuffer>>& layer_cache_buffers) {
-    RTP_LLM_LOG_INFO(
+    RTP_LLM_LOG_DEBUG(
         "P2PConnectorWorker read start, request_id: %ld, unique_key: %s, deadline_ms: %ld, layer_cache_buffers_size: %zu",
         request_id,
         unique_key.c_str(),
@@ -309,10 +309,10 @@ bool P2PConnectorWorker::read(int64_t                                           
         metrics_reporter_->report<P2PConnectorMetrics, P2PConnectorClientWorkerMetricsCollector>(nullptr,
                                                                                                  collector.get());
     }
-    RTP_LLM_LOG_INFO("P2PConnectorWorker read end, request_id: %ld, unique_key: %s, success: %d",
-                     request_id,
-                     unique_key.c_str(),
-                     layer_cache_buffer_task->success());
+    RTP_LLM_LOG_DEBUG("P2PConnectorWorker read end, request_id: %ld, unique_key: %s, success: %d",
+                      request_id,
+                      unique_key.c_str(),
+                      layer_cache_buffer_task->success());
     return layer_cache_buffer_task->success();
 }
 

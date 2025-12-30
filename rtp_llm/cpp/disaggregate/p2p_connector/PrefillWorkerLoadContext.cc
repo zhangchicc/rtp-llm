@@ -52,7 +52,7 @@ bool PrefillWorkerLoadContext::startTransfer(int id) {
     }
     need_transfer_ids_.erase(iter);
     transferring_ids_.insert(id);
-    RTP_LLM_LOG_INFO("PrefillWorkerLoadContext startTransfer success, id: %d", id);
+    RTP_LLM_LOG_DEBUG("PrefillWorkerLoadContext startTransfer success, id: %d", id);
     return true;
 }
 
@@ -60,12 +60,12 @@ void PrefillWorkerLoadContext::notifyDone(int id, bool success) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!success) {
         all_success_ = false;
-        RTP_LLM_LOG_INFO("PrefillWorkerLoadContext notifyDone failed, id: %d", id);
+        RTP_LLM_LOG_DEBUG("PrefillWorkerLoadContext notifyDone failed, id: %d", id);
     }
     if (transferring_ids_.find(id) == transferring_ids_.end()) {
         return;
     }
-    RTP_LLM_LOG_INFO("PrefillWorkerLoadContext notifyDone success, id: %d", id);
+    RTP_LLM_LOG_DEBUG("PrefillWorkerLoadContext notifyDone success, id: %d", id);
     transferring_ids_.erase(id);
     transferred_ids_.insert(id);
 }
