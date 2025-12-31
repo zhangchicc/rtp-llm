@@ -1,96 +1,46 @@
 #include "rtp_llm/cpp/disaggregate/transfer/CudaCopyUtil.h"
+#include "rtp_llm/cpp/devices/DeviceFactory.h"
+#include "rtp_llm/cpp/core/Buffer.h"
 #include "rtp_llm/cpp/utils/Logger.h"
 
 namespace rtp_llm {
-
-CudaCopyUtil::CudaCopyUtil() {
-#if defined(USING_CUDA) && USING_CUDA
-    cudaError_t err = cudaStreamCreate(&stream_);
-    if (err != cudaSuccess) {
-        RTP_LLM_LOG_WARNING("cudaStreamCreate failed: %s", cudaGetErrorString(err));
-        stream_ = nullptr;
-    }
-#elif defined(USING_ROCM) && USING_ROCM
-    hipError_t err = hipStreamCreate(&stream_);
-    if (err != hipSuccess) {
-        RTP_LLM_LOG_WARNING("hipStreamCreate failed: %s", hipGetErrorString(err));
-        stream_ = nullptr;
-    }
-#else
-    // 非 GPU 平台，stream_ 保持 nullptr
-#endif
-}
-
-CudaCopyUtil::~CudaCopyUtil() {
-#if defined(USING_CUDA) && USING_CUDA
-    if (stream_) {
-        cudaStreamDestroy(stream_);
-        stream_ = nullptr;
-    }
-#elif defined(USING_ROCM) && USING_ROCM
-    if (stream_) {
-        hipStreamDestroy(stream_);
-        stream_ = nullptr;
-    }
-#else
-    // 非 GPU 平台，无需清理
-#endif
-}
 
 bool CudaCopyUtil::batchCopyToHost(std::vector<CopyTask>& tasks) {
     if (tasks.empty()) {
         return true;
     }
 
-#if (defined(USING_CUDA) && USING_CUDA) || (defined(USING_ROCM) && USING_ROCM)
-    if (!stream_) {
-        RTP_LLM_LOG_WARNING("GPU stream is not initialized");
+    auto* device = DeviceFactory::getDefaultDevice();
+    if (!device) {
+        RTP_LLM_LOG_WARNING("Device is not initialized");
         return false;
     }
 
-    // 1. 提交所有 MemcpyAsync
+    // 构建 MultiCopyParams
+    MultiCopyParams params;
+    params.multi_src.reserve(tasks.size());
+    params.multi_dst.reserve(tasks.size());
+
     for (auto& task : tasks) {
         if (!task.dst_ptr) {
             RTP_LLM_LOG_WARNING("dst_ptr is nullptr, caller must pre-allocate dst_ptr");
             return false;
         }
 
-#if defined(USING_CUDA) && USING_CUDA
-        cudaError_t err = cudaMemcpyAsync(task.dst_ptr, task.src_ptr, task.size, cudaMemcpyDeviceToHost, stream_);
-        if (err != cudaSuccess) {
-            RTP_LLM_LOG_WARNING("cudaMemcpyAsync (D2H) failed: %s", cudaGetErrorString(err));
-            return false;
-        }
-#elif defined(USING_ROCM) && USING_ROCM
-        hipError_t err = hipMemcpyAsync(task.dst_ptr, task.src_ptr, task.size, hipMemcpyDeviceToHost, stream_);
-        if (err != hipSuccess) {
-            RTP_LLM_LOG_WARNING("hipMemcpyAsync (D2H) failed: %s", hipGetErrorString(err));
-            return false;
-        }
-#endif
+        // 创建临时 Buffer 包装 raw pointer
+        // src 来自 GPU (MEMORY_GPU)，dst 是 CPU (MEMORY_CPU_PINNED 或 MEMORY_CPU)
+        auto src_buffer = std::make_shared<Buffer>(
+            MemoryType::MEMORY_GPU, DataType::TYPE_BYTES, std::vector<size_t>{task.size}, task.src_ptr);
+        auto dst_buffer = std::make_shared<Buffer>(
+            MemoryType::MEMORY_CPU_PINNED, DataType::TYPE_BYTES, std::vector<size_t>{task.size}, task.dst_ptr);
+
+        params.multi_src.push_back(src_buffer);
+        params.multi_dst.push_back(dst_buffer);
     }
 
-    // 2. 同步等待所有拷贝完成
-#if defined(USING_CUDA) && USING_CUDA
-    cudaError_t err = cudaStreamSynchronize(stream_);
-    if (err != cudaSuccess) {
-        RTP_LLM_LOG_WARNING("cudaStreamSynchronize failed: %s", cudaGetErrorString(err));
-        return false;
-    }
-#elif defined(USING_ROCM) && USING_ROCM
-    hipError_t err = hipStreamSynchronize(stream_);
-    if (err != hipSuccess) {
-        RTP_LLM_LOG_WARNING("hipStreamSynchronize failed: %s", hipGetErrorString(err));
-        return false;
-    }
-#endif
-
+    // 调用 DeviceOps::noBlockCopy
+    device->noBlockCopy(params);
     return true;
-#else
-    // 非 GPU 平台不支持此操作
-    RTP_LLM_LOG_WARNING("CudaCopyUtil::batchCopyToHost is not supported on non-GPU platforms");
-    return false;
-#endif
 }
 
 bool CudaCopyUtil::batchCopyToDevice(std::vector<CopyTask>& tasks) {
@@ -98,55 +48,37 @@ bool CudaCopyUtil::batchCopyToDevice(std::vector<CopyTask>& tasks) {
         return true;
     }
 
-#if (defined(USING_CUDA) && USING_CUDA) || (defined(USING_ROCM) && USING_ROCM)
-    if (!stream_) {
-        RTP_LLM_LOG_WARNING("GPU stream is not initialized");
+    auto* device = DeviceFactory::getDefaultDevice();
+    if (!device) {
+        RTP_LLM_LOG_WARNING("Device is not initialized");
         return false;
     }
 
-    // 1. 提交所有 MemcpyAsync
+    // 构建 MultiCopyParams
+    MultiCopyParams params;
+    params.multi_src.reserve(tasks.size());
+    params.multi_dst.reserve(tasks.size());
+
     for (auto& task : tasks) {
         if (!task.dst_ptr) {
             RTP_LLM_LOG_WARNING("dst_ptr is nullptr, caller must pre-allocate dst_ptr");
             return false;
         }
 
-#if defined(USING_CUDA) && USING_CUDA
-        cudaError_t err = cudaMemcpyAsync(task.dst_ptr, task.src_ptr, task.size, cudaMemcpyHostToDevice, stream_);
-        if (err != cudaSuccess) {
-            RTP_LLM_LOG_WARNING("cudaMemcpyAsync (H2D) failed: %s", cudaGetErrorString(err));
-            return false;
-        }
-#elif defined(USING_ROCM) && USING_ROCM
-        hipError_t err = hipMemcpyAsync(task.dst_ptr, task.src_ptr, task.size, hipMemcpyHostToDevice, stream_);
-        if (err != hipSuccess) {
-            RTP_LLM_LOG_WARNING("hipMemcpyAsync (H2D) failed: %s", hipGetErrorString(err));
-            return false;
-        }
-#endif
+        // 创建临时 Buffer 包装 raw pointer
+        // src 来自 CPU (MEMORY_CPU_PINNED 或 MEMORY_CPU)，dst 是 GPU (MEMORY_GPU)
+        auto src_buffer = std::make_shared<Buffer>(
+            MemoryType::MEMORY_CPU_PINNED, DataType::TYPE_BYTES, std::vector<size_t>{task.size}, task.src_ptr);
+        auto dst_buffer = std::make_shared<Buffer>(
+            MemoryType::MEMORY_GPU, DataType::TYPE_BYTES, std::vector<size_t>{task.size}, task.dst_ptr);
+
+        params.multi_src.push_back(src_buffer);
+        params.multi_dst.push_back(dst_buffer);
     }
 
-    // 2. 同步等待所有拷贝完成
-#if defined(USING_CUDA) && USING_CUDA
-    cudaError_t err = cudaStreamSynchronize(stream_);
-    if (err != cudaSuccess) {
-        RTP_LLM_LOG_WARNING("cudaStreamSynchronize failed: %s", cudaGetErrorString(err));
-        return false;
-    }
-#elif defined(USING_ROCM) && USING_ROCM
-    hipError_t err = hipStreamSynchronize(stream_);
-    if (err != hipSuccess) {
-        RTP_LLM_LOG_WARNING("hipStreamSynchronize failed: %s", hipGetErrorString(err));
-        return false;
-    }
-#endif
-
+    // 调用 DeviceOps::noBlockCopy
+    device->noBlockCopy(params);
     return true;
-#else
-    // 非 GPU 平台不支持此操作
-    RTP_LLM_LOG_WARNING("CudaCopyUtil::batchCopyToDevice is not supported on non-GPU platforms");
-    return false;
-#endif
 }
 
 }  // namespace rtp_llm

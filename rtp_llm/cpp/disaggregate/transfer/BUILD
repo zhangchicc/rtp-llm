@@ -82,9 +82,9 @@ cc_library(
     hdrs = ["CudaCopyUtil.h"],
     srcs = ["CudaCopyUtil.cc"],
     deps = [
+        "//rtp_llm/cpp/core:buffer",
+        "//rtp_llm/cpp/devices:devices_base",
         "//rtp_llm/cpp/utils:core_utils",
-        "@local_config_cuda//cuda:cuda_headers",
-        "@local_config_cuda//cuda:cudart",
     ],
     visibility = ["//visibility:public"],
 )
