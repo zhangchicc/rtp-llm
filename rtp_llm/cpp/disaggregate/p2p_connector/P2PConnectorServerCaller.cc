@@ -22,7 +22,6 @@ P2PConnectorServerCaller::P2PConnectorServerCaller(const std::vector<std::string
         if (ip_parts.size() != 3) {
             RTP_LLM_FAIL("P2PConnectorServerCaller: invalid worker addr format [%s], expected ip:cache_store_port",
                          worker_addr.c_str());
-        L:
             continue;
         }
         TPWorkerInfoPB tp_worker;
