@@ -1,8 +1,8 @@
 #pragma once
 
-#if USING_CUDA
+#if defined(USING_CUDA) && USING_CUDA
 #include <cuda_runtime.h>
-#elif USING_ROCM
+#elif defined(USING_ROCM) && USING_ROCM
 #include <hip/hip_runtime.h>
 #endif
 
@@ -39,10 +39,12 @@ public:
     /// @return 成功返回 true，若 dst_ptr 为 nullptr 则返回 false
     bool batchCopyToDevice(std::vector<CopyTask>& tasks);
 
-#if USING_CUDA
+#if defined(USING_CUDA) && USING_CUDA
     cudaStream_t stream_ = nullptr;
-#elif USING_ROCM
+#elif defined(USING_ROCM) && USING_ROCM
     hipStream_t stream_ = nullptr;
+#else
+    void* stream_ = nullptr;  // 非 GPU 平台占位符
 #endif
 };
 

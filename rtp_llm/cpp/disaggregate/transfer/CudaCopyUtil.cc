@@ -4,13 +4,13 @@
 namespace rtp_llm {
 
 CudaCopyUtil::CudaCopyUtil() {
-#if USING_CUDA
+#if defined(USING_CUDA) && USING_CUDA
     cudaError_t err = cudaStreamCreate(&stream_);
     if (err != cudaSuccess) {
         RTP_LLM_LOG_WARNING("cudaStreamCreate failed: %s", cudaGetErrorString(err));
         stream_ = nullptr;
     }
-#elif USING_ROCM
+#elif defined(USING_ROCM) && USING_ROCM
     hipError_t err = hipStreamCreate(&stream_);
     if (err != hipSuccess) {
         RTP_LLM_LOG_WARNING("hipStreamCreate failed: %s", hipGetErrorString(err));
@@ -22,12 +22,12 @@ CudaCopyUtil::CudaCopyUtil() {
 }
 
 CudaCopyUtil::~CudaCopyUtil() {
-#if USING_CUDA
+#if defined(USING_CUDA) && USING_CUDA
     if (stream_) {
         cudaStreamDestroy(stream_);
         stream_ = nullptr;
     }
-#elif USING_ROCM
+#elif defined(USING_ROCM) && USING_ROCM
     if (stream_) {
         hipStreamDestroy(stream_);
         stream_ = nullptr;
@@ -42,7 +42,7 @@ bool CudaCopyUtil::batchCopyToHost(std::vector<CopyTask>& tasks) {
         return true;
     }
 
-#if USING_CUDA || USING_ROCM
+#if (defined(USING_CUDA) && USING_CUDA) || (defined(USING_ROCM) && USING_ROCM)
     if (!stream_) {
         RTP_LLM_LOG_WARNING("GPU stream is not initialized");
         return false;
@@ -55,13 +55,13 @@ bool CudaCopyUtil::batchCopyToHost(std::vector<CopyTask>& tasks) {
             return false;
         }
 
-#if USING_CUDA
+#if defined(USING_CUDA) && USING_CUDA
         cudaError_t err = cudaMemcpyAsync(task.dst_ptr, task.src_ptr, task.size, cudaMemcpyDeviceToHost, stream_);
         if (err != cudaSuccess) {
             RTP_LLM_LOG_WARNING("cudaMemcpyAsync (D2H) failed: %s", cudaGetErrorString(err));
             return false;
         }
-#elif USING_ROCM
+#elif defined(USING_ROCM) && USING_ROCM
         hipError_t err = hipMemcpyAsync(task.dst_ptr, task.src_ptr, task.size, hipMemcpyDeviceToHost, stream_);
         if (err != hipSuccess) {
             RTP_LLM_LOG_WARNING("hipMemcpyAsync (D2H) failed: %s", hipGetErrorString(err));
@@ -71,13 +71,13 @@ bool CudaCopyUtil::batchCopyToHost(std::vector<CopyTask>& tasks) {
     }
 
     // 2. 同步等待所有拷贝完成
-#if USING_CUDA
+#if defined(USING_CUDA) && USING_CUDA
     cudaError_t err = cudaStreamSynchronize(stream_);
     if (err != cudaSuccess) {
         RTP_LLM_LOG_WARNING("cudaStreamSynchronize failed: %s", cudaGetErrorString(err));
         return false;
     }
-#elif USING_ROCM
+#elif defined(USING_ROCM) && USING_ROCM
     hipError_t err = hipStreamSynchronize(stream_);
     if (err != hipSuccess) {
         RTP_LLM_LOG_WARNING("hipStreamSynchronize failed: %s", hipGetErrorString(err));
@@ -98,7 +98,7 @@ bool CudaCopyUtil::batchCopyToDevice(std::vector<CopyTask>& tasks) {
         return true;
     }
 
-#if USING_CUDA || USING_ROCM
+#if (defined(USING_CUDA) && USING_CUDA) || (defined(USING_ROCM) && USING_ROCM)
     if (!stream_) {
         RTP_LLM_LOG_WARNING("GPU stream is not initialized");
         return false;
@@ -111,13 +111,13 @@ bool CudaCopyUtil::batchCopyToDevice(std::vector<CopyTask>& tasks) {
             return false;
         }
 
-#if USING_CUDA
+#if defined(USING_CUDA) && USING_CUDA
         cudaError_t err = cudaMemcpyAsync(task.dst_ptr, task.src_ptr, task.size, cudaMemcpyHostToDevice, stream_);
         if (err != cudaSuccess) {
             RTP_LLM_LOG_WARNING("cudaMemcpyAsync (H2D) failed: %s", cudaGetErrorString(err));
             return false;
         }
-#elif USING_ROCM
+#elif defined(USING_ROCM) && USING_ROCM
         hipError_t err = hipMemcpyAsync(task.dst_ptr, task.src_ptr, task.size, hipMemcpyHostToDevice, stream_);
         if (err != hipSuccess) {
             RTP_LLM_LOG_WARNING("hipMemcpyAsync (H2D) failed: %s", hipGetErrorString(err));
@@ -127,13 +127,13 @@ bool CudaCopyUtil::batchCopyToDevice(std::vector<CopyTask>& tasks) {
     }
 
     // 2. 同步等待所有拷贝完成
-#if USING_CUDA
+#if defined(USING_CUDA) && USING_CUDA
     cudaError_t err = cudaStreamSynchronize(stream_);
     if (err != cudaSuccess) {
         RTP_LLM_LOG_WARNING("cudaStreamSynchronize failed: %s", cudaGetErrorString(err));
         return false;
     }
-#elif USING_ROCM
+#elif defined(USING_ROCM) && USING_ROCM
     hipError_t err = hipStreamSynchronize(stream_);
     if (err != hipSuccess) {
         RTP_LLM_LOG_WARNING("hipStreamSynchronize failed: %s", hipGetErrorString(err));
