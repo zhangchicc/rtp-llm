@@ -16,18 +16,25 @@ CudaCopyUtil::CudaCopyUtil() {
         RTP_LLM_LOG_WARNING("hipStreamCreate failed: %s", hipGetErrorString(err));
         stream_ = nullptr;
     }
+#else
+    // 非 GPU 平台，stream_ 保持 nullptr
 #endif
 }
 
 CudaCopyUtil::~CudaCopyUtil() {
-    if (stream_) {
 #if USING_CUDA
+    if (stream_) {
         cudaStreamDestroy(stream_);
-#elif USING_ROCM
-        hipStreamDestroy(stream_);
-#endif
         stream_ = nullptr;
     }
+#elif USING_ROCM
+    if (stream_) {
+        hipStreamDestroy(stream_);
+        stream_ = nullptr;
+    }
+#else
+    // 非 GPU 平台，无需清理
+#endif
 }
 
 bool CudaCopyUtil::batchCopyToHost(std::vector<CopyTask>& tasks) {
@@ -35,6 +42,7 @@ bool CudaCopyUtil::batchCopyToHost(std::vector<CopyTask>& tasks) {
         return true;
     }
 
+#if USING_CUDA || USING_ROCM
     if (!stream_) {
         RTP_LLM_LOG_WARNING("GPU stream is not initialized");
         return false;
@@ -78,6 +86,11 @@ bool CudaCopyUtil::batchCopyToHost(std::vector<CopyTask>& tasks) {
 #endif
 
     return true;
+#else
+    // 非 GPU 平台不支持此操作
+    RTP_LLM_LOG_WARNING("CudaCopyUtil::batchCopyToHost is not supported on non-GPU platforms");
+    return false;
+#endif
 }
 
 bool CudaCopyUtil::batchCopyToDevice(std::vector<CopyTask>& tasks) {
@@ -85,6 +98,7 @@ bool CudaCopyUtil::batchCopyToDevice(std::vector<CopyTask>& tasks) {
         return true;
     }
 
+#if USING_CUDA || USING_ROCM
     if (!stream_) {
         RTP_LLM_LOG_WARNING("GPU stream is not initialized");
         return false;
@@ -128,6 +142,11 @@ bool CudaCopyUtil::batchCopyToDevice(std::vector<CopyTask>& tasks) {
 #endif
 
     return true;
+#else
+    // 非 GPU 平台不支持此操作
+    RTP_LLM_LOG_WARNING("CudaCopyUtil::batchCopyToDevice is not supported on non-GPU platforms");
+    return false;
+#endif
 }
 
 }  // namespace rtp_llm
