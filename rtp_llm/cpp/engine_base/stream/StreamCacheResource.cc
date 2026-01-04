@@ -11,8 +11,7 @@ namespace rtp_llm {
 
 void StreamCacheResource::init(int batch_size) {
     batch_kv_cache_resource_->resetBatchSize(batch_size);
-    RTP_LLM_CHECK_WITH_INFO(resource_context_.cache_manager != nullptr, "cache manager is nullptr!");
-    int layer_num = resource_context_.cache_manager->cacheConfig().layer_num;
+    int layer_num = resource_context_.cache_manager ? resource_context_.cache_manager->cacheConfig().layer_num : 1;
     batch_kv_cache_resource_->initGroups(1, layer_num);
     batch_kv_cache_resource_->enable_reuse_cache = reuseCache();
 }
