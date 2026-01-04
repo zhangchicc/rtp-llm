@@ -58,4 +58,17 @@ std::vector<BufferPtr> PerfTestLayerBlockConvertor::getBuffers() const {
     }
     return buffers;
 }
+
+std::vector<std::pair<BufferPtr, size_t>> PerfTestLayerBlockConvertor::getAllBuffers() const {
+    std::vector<std::pair<BufferPtr, size_t>> result;
+    std::lock_guard<std::mutex>               lock(mutex_);
+    for (const auto& layer_buffers : buffer_map_) {
+        for (const auto& block_buffers : layer_buffers.second) {
+            for (const auto& buffer : block_buffers.second) {
+                result.emplace_back(buffer, buffer->sizeBytes());
+            }
+        }
+    }
+    return result;
+}
 }  // namespace rtp_llm

@@ -21,6 +21,8 @@ public:
     std::vector<BufferPtr>
     convertIndexToBuffer(int layer_id, int block_id, int partition_count = 1, int partition_id = 0) const override;
 
+    std::vector<std::pair<BufferPtr, size_t>> getAllBuffers() const override;
+
     /// @brief 预分配所有需要的 buffer
     /// @param block_count 需要分配的 block 数量
     /// @param fill_value 填充值（默认为 0）

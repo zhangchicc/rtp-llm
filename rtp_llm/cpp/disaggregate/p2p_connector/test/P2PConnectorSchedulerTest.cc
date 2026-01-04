@@ -101,12 +101,10 @@ TEST_F(P2PConnectorSchedulerTest, HandleRead_ReturnError_LayerCacheBuffersEmpty)
 
     auto deadline_ms = currentTimeMs() + 1000;
 
-    auto status =
+    auto success =
         scheduler_->handleRead(invalid_resource, "test_unique_key", 1001, decode_transfer_servers, deadline_ms);
 
-    EXPECT_FALSE(status.ok());
-    EXPECT_EQ(status.error_code(), grpc::StatusCode::INTERNAL);
-    EXPECT_EQ(status.error_message(), "layer_cache_buffers is empty");
+    EXPECT_FALSE(success);
 
     // 验证 BroadcastTp 没有被调用
     for (size_t i = 0; i < tp_broadcast_servers_.size(); ++i) {
@@ -124,10 +122,10 @@ TEST_F(P2PConnectorSchedulerTest, HandleRead_ReturnOK_BroadcastSuccess) {
 
     auto deadline_ms = currentTimeMs() + 1000;
 
-    auto status =
+    auto success =
         scheduler_->handleRead(valid_resource, "test_broadcast_success", 1001, decode_transfer_servers, deadline_ms);
 
-    EXPECT_TRUE(status.ok());
+    EXPECT_TRUE(success);
 
     // 验证 BroadcastTp 被调用
     for (size_t i = 0; i < tp_broadcast_servers_.size(); ++i) {
@@ -149,12 +147,10 @@ TEST_F(P2PConnectorSchedulerTest, HandleRead_ReturnError_BroadcastAllFailed) {
 
     auto deadline_ms = currentTimeMs() + 1000;
 
-    auto status =
+    auto success =
         scheduler_->handleRead(valid_resource, "test_broadcast_all_fail", 1003, decode_transfer_servers, deadline_ms);
 
-    EXPECT_FALSE(status.ok());
-    EXPECT_EQ(status.error_code(), grpc::StatusCode::INTERNAL);
-    EXPECT_EQ(status.error_message(), "broadcast result failed");
+    EXPECT_FALSE(success);
 
     // 验证 BroadcastTp 被调用
     for (size_t i = 0; i < tp_broadcast_servers_.size(); ++i) {
@@ -173,7 +169,8 @@ TEST_F(P2PConnectorSchedulerTest, AsyncRead_ReturnNotNull_AllSuccess) {
     uint32_t    prefill_port = static_cast<uint32_t>(prefill_server_->listenPort());
     int64_t     deadline_ms  = currentTimeMs() + 5000;
 
-    auto async_context = scheduler_->asyncRead(resource, request_id, unique_key, prefill_ip, prefill_port, deadline_ms);
+    auto async_context =
+        scheduler_->asyncRead(resource, request_id, unique_key, prefill_ip, prefill_port, deadline_ms, nullptr);
     ASSERT_NE(async_context, nullptr);
 
     waitAsyncContextDone(async_context);
@@ -195,7 +192,8 @@ TEST_F(P2PConnectorSchedulerTest, AsyncRead_ReturnNull_NullResource) {
     uint32_t    prefill_port = static_cast<uint32_t>(prefill_server_->listenPort());
     int64_t     deadline_ms  = currentTimeMs() + 5000;
 
-    auto async_context = scheduler_->asyncRead(nullptr, request_id, unique_key, prefill_ip, prefill_port, deadline_ms);
+    auto async_context =
+        scheduler_->asyncRead(nullptr, request_id, unique_key, prefill_ip, prefill_port, deadline_ms, nullptr);
 
     EXPECT_EQ(async_context, nullptr);
 
@@ -215,7 +213,8 @@ TEST_F(P2PConnectorSchedulerTest, AsyncRead_ReturnNull_EmptyResource) {
     uint32_t    prefill_port = static_cast<uint32_t>(prefill_server_->listenPort());
     int64_t     deadline_ms  = currentTimeMs() + 5000;
 
-    auto async_context = scheduler_->asyncRead(resource, request_id, unique_key, prefill_ip, prefill_port, deadline_ms);
+    auto async_context =
+        scheduler_->asyncRead(resource, request_id, unique_key, prefill_ip, prefill_port, deadline_ms, nullptr);
 
     EXPECT_EQ(async_context, nullptr);
 
@@ -237,7 +236,8 @@ TEST_F(P2PConnectorSchedulerTest, AsyncRead_ReturnFalse_BroadcastFailed) {
     uint32_t    prefill_port = static_cast<uint32_t>(prefill_server_->listenPort());
     int64_t     deadline_ms  = currentTimeMs() + 5000;
 
-    auto async_context = scheduler_->asyncRead(resource, request_id, unique_key, prefill_ip, prefill_port, deadline_ms);
+    auto async_context =
+        scheduler_->asyncRead(resource, request_id, unique_key, prefill_ip, prefill_port, deadline_ms, nullptr);
     ASSERT_NE(async_context, nullptr);
 
     waitAsyncContextDone(async_context);
@@ -263,7 +263,8 @@ TEST_F(P2PConnectorSchedulerTest, AsyncRead_ReturnFalse_LoadFailed) {
     uint32_t    prefill_port = static_cast<uint32_t>(prefill_server_->listenPort());
     int64_t     deadline_ms  = currentTimeMs() + 5000;
 
-    auto async_context = scheduler_->asyncRead(resource, request_id, unique_key, prefill_ip, prefill_port, deadline_ms);
+    auto async_context =
+        scheduler_->asyncRead(resource, request_id, unique_key, prefill_ip, prefill_port, deadline_ms, nullptr);
     ASSERT_NE(async_context, nullptr);
 
     waitAsyncContextDone(async_context);
@@ -290,7 +291,8 @@ TEST_F(P2PConnectorSchedulerTest, AsyncRead_ReturnFalse_BothFailed) {
     uint32_t    prefill_port = static_cast<uint32_t>(prefill_server_->listenPort());
     int64_t     deadline_ms  = currentTimeMs() + 5000;
 
-    auto async_context = scheduler_->asyncRead(resource, request_id, unique_key, prefill_ip, prefill_port, deadline_ms);
+    auto async_context =
+        scheduler_->asyncRead(resource, request_id, unique_key, prefill_ip, prefill_port, deadline_ms, nullptr);
     ASSERT_NE(async_context, nullptr);
 
     waitAsyncContextDone(async_context);

@@ -57,7 +57,7 @@ public:
 // Mock TransferClient for testing
 class MockTransferClient: public TransferClient {
 public:
-    MockTransferClient(): TransferClient(nullptr, nullptr) {}
+    MockTransferClient(): TransferClient(nullptr, nullptr, nullptr) {}
 
 public:
     struct TransferCallInfo {

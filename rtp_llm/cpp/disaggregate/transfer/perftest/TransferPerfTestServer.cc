@@ -78,7 +78,7 @@ bool TransferPerfTestServer::init() {
     }
 
     // 创建 TransferServer
-    transfer_server_ = std::make_shared<TransferServer>(layer_block_convertor_, metrics_reporter_);
+    transfer_server_ = std::make_shared<TransferServer>(layer_block_convertor_, nullptr, metrics_reporter_);
 
     int      rdma_io_thread_count      = 1;
     int      rdma_worker_thread_count  = 1;

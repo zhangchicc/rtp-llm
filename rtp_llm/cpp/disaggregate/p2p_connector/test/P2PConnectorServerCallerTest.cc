@@ -1,4 +1,6 @@
 #include <thread>
+#include <mutex>
+#include <unordered_map>
 #include <gtest/gtest.h>
 #include "grpc++/grpc++.h"
 
@@ -6,31 +8,53 @@
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorServerCaller.h"
 #include "rtp_llm/cpp/utils/TimeUtil.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/test/TestRpcServer.h"
-#include "rtp_llm/cpp/engine_base/stream/CompleteTokenIds.h"
-#include "rtp_llm/cpp/engine_base/stream/GenerateTypes.h"
-#include "rtp_llm/cpp/devices/DeviceFactory.h"
 
 namespace rtp_llm {
 
-// 辅助函数：创建 CompleteTokenIds 用于测试
-CompleteTokenIdsPtr createTestCompleteTokenIds(int batch_size, int seq_length) {
-    auto device = DeviceFactory::getDevice(DeviceType::Cpu);
-    // CompleteTokenIds(device, batch_size, max_batch_size, max_seq_len, seq_size_per_block)
-    auto complete_token_ids = std::make_shared<CompleteTokenIds>(device, batch_size, batch_size, seq_length + 100, 8);
+// 测试用的 ICompleteTokenIds 实现，用于校验 token id
+class TestCompleteTokenIdsImpl: public ICompleteTokenIds {
+public:
+    TestCompleteTokenIdsImpl()  = default;
+    ~TestCompleteTokenIdsImpl() = default;
 
-    auto input_ids = device->allocateBuffer(
-        {rtp_llm::DataType::TYPE_INT32, {(size_t)seq_length}, rtp_llm::AllocationType::HOST}, {});
-    // 初始化输入 token ids
-    int* data = input_ids->data<int>();
-    for (int i = 0; i < seq_length; i++) {
-        data[i] = i + 1;  // token ids: 1, 2, 3, ...
+    void appendTokenId(int batch_id, int token_id) override {
+        std::lock_guard<std::mutex> lock(mutex_);
+        token_ids_[batch_id].push_back(token_id);
     }
 
-    auto generate_input       = std::make_shared<GenerateInput>();
-    generate_input->input_ids = input_ids;
-    complete_token_ids->init(generate_input);
-    return complete_token_ids;
-}
+    std::vector<int> currentExecuteTokens(int batch_id) override {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto                        it = token_ids_.find(batch_id);
+        if (it != token_ids_.end()) {
+            return it->second;
+        }
+        return {};
+    }
+
+    // 获取指定 batch_id 的所有 token ids（用于测试验证）
+    std::vector<int> getTokenIds(int batch_id) const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto                        it = token_ids_.find(batch_id);
+        if (it != token_ids_.end()) {
+            return it->second;
+        }
+        return {};
+    }
+
+    // 获取指定 batch_id 的 token 数量
+    size_t tokenCount(int batch_id) const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto                        it = token_ids_.find(batch_id);
+        if (it != token_ids_.end()) {
+            return it->second.size();
+        }
+        return 0;
+    }
+
+private:
+    mutable std::mutex                        mutex_;
+    std::unordered_map<int, std::vector<int>> token_ids_;
+};
 
 class P2PConnectorServerCallerTest: public ::testing::Test {
 protected:
@@ -249,11 +273,9 @@ TEST_F(P2PConnectorServerCallerTest, CheckDone_CompleteTokenIdsUpdate) {
     std::string prefill_ip   = "127.0.0.1";
     uint32_t    prefill_port = static_cast<uint32_t>(server_->listenPort());
 
-    // 创建 CompleteTokenIds，初始长度为 10
-    int  initial_seq_length = 10;
-    auto complete_token_ids = createTestCompleteTokenIds(1, initial_seq_length);
-    ASSERT_NE(complete_token_ids, nullptr);
-    EXPECT_EQ(complete_token_ids->seqLength(), initial_seq_length);
+    // 创建测试用的 TestCompleteTokenIdsImpl
+    auto complete_token_ids = std::make_shared<TestCompleteTokenIdsImpl>();
+    EXPECT_EQ(complete_token_ids->tokenCount(0), 0);
 
     // 执行 load
     auto result = client_->load(request_id, prefill_ip, prefill_port, unique_key, deadline_ms, complete_token_ids);
@@ -265,14 +287,14 @@ TEST_F(P2PConnectorServerCallerTest, CheckDone_CompleteTokenIdsUpdate) {
     EXPECT_TRUE(result->done());
     EXPECT_TRUE(result->success());
 
-    // 验证 complete_token_ids 被更新
-    // update 方法应该添加了一个新 token，所以长度应该 +1
-    EXPECT_EQ(complete_token_ids->seqLength(), initial_seq_length + 1);
+    // 验证 complete_token_ids 收到了 token id
+    // appendTokenId 应该被调用并添加了 first_generate_token_id
+    EXPECT_EQ(complete_token_ids->tokenCount(0), 1);
 
     // 验证新 token 的值是 first_generate_token_id
-    auto token_vec = complete_token_ids->completeTokenIdsVec(0);
-    ASSERT_GT(token_vec.size(), static_cast<size_t>(initial_seq_length));
-    EXPECT_EQ(token_vec[initial_seq_length], static_cast<int>(expected_token_id));
+    auto token_vec = complete_token_ids->getTokenIds(0);
+    ASSERT_EQ(token_vec.size(), 1);
+    EXPECT_EQ(token_vec[0], static_cast<int>(expected_token_id));
 }
 
 }  // namespace rtp_llm

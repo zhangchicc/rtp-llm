@@ -69,7 +69,7 @@ bool TransferPerfTestClient::init() {
     }
 
     // 创建 TransferClient
-    transfer_client_ = std::make_shared<TransferClient>(layer_block_convertor_, metrics_reporter_);
+    transfer_client_ = std::make_shared<TransferClient>(layer_block_convertor_, nullptr, metrics_reporter_);
 
     int rdma_io_thread_count     = 1;
     int rdma_worker_thread_count = 1;

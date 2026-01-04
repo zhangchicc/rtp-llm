@@ -1,5 +1,3 @@
-#pragma once
-
 #include "rtp_llm/cpp/disaggregate/p2p_connector/test/TestRpcServer.h"
 #include <thread>
 #include <atomic>
