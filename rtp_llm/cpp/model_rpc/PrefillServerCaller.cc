@@ -7,9 +7,9 @@ PrefillServerCallerContext::PrefillServerCallerContext(const std::string& prefil
                                                        int64_t            decode_polling_call_prefill_ms,
                                                        const std::string& unique_key):
     prefill_addr(prefill_addr),
-    decode_polling_call_prefill_ms_(decode_polling_call_prefill_ms),
     unique_key(unique_key),
-    request_begin_time_us_(currentTimeUs()) {
+    request_begin_time_us_(currentTimeUs()),
+    decode_polling_call_prefill_ms_(decode_polling_call_prefill_ms) {
     client_context   = std::make_shared<grpc::ClientContext>();
     completion_queue = std::make_shared<grpc::CompletionQueue>();
 }
