@@ -6,6 +6,13 @@
 namespace rtp_llm {
 
 class KVCacheResourceV1;
+struct KVCacheConnectorMeta;
+
+enum class ConnectorType {
+    Memory = 0,
+    Remote = 1,
+    P2P    = 2
+};
 
 class AsyncContext {
 public:
@@ -15,6 +22,14 @@ public:
 public:
     virtual bool done() const    = 0;
     virtual bool success() const = 0;
+};
+
+class AsyncMatchContext: public AsyncContext {
+public:
+    AsyncMatchContext()                             = default;
+    ~AsyncMatchContext() override                   = default;
+    virtual size_t        matchedBlockCount() const = 0;
+    virtual ConnectorType connectorType() const     = 0;
 };
 
 class FusedAsyncContext: public AsyncContext {
@@ -36,9 +51,10 @@ private:
 
 class FusedAsyncReadContext: public AsyncContext {
 public:
-    FusedAsyncReadContext(const std::shared_ptr<FusedAsyncContext>& fused_match_context,
-                          const std::shared_ptr<KVCacheResourceV1>& resource);
-    ~FusedAsyncReadContext() override;
+    FusedAsyncReadContext(const std::shared_ptr<FusedAsyncContext>&    fused_match_context,
+                          const std::shared_ptr<KVCacheResourceV1>&    resource,
+                          const std::shared_ptr<KVCacheConnectorMeta>& meta);
+    ~FusedAsyncReadContext() override = default;
 
 public:
     bool done() const override;
@@ -53,11 +69,15 @@ public:
     const std::shared_ptr<KVCacheResourceV1>& resource() const {
         return resource_;
     }
+    const std::shared_ptr<KVCacheConnectorMeta>& meta() const {
+        return meta_;
+    }
 
 private:
-    std::shared_ptr<FusedAsyncContext> fused_match_context_;
-    std::shared_ptr<FusedAsyncContext> fused_read_context_;
-    std::shared_ptr<KVCacheResourceV1> resource_;
+    std::shared_ptr<FusedAsyncContext>    fused_match_context_;
+    std::shared_ptr<FusedAsyncContext>    fused_read_context_;
+    std::shared_ptr<KVCacheResourceV1>    resource_;
+    std::shared_ptr<KVCacheConnectorMeta> meta_;
 };
 
 }  // namespace rtp_llm

@@ -205,6 +205,7 @@ std::vector<BufferPtr> SingleTypeKVCacheAllocator::convertIndexToBuffer(int laye
 std::shared_ptr<KVCacheResourceV1> SingleTypeKVCacheAllocator::incrKVCacheRef(const KVCacheResourceV1& kvcache_resource,
                                                                               const CacheKeysType&     cache_keys) {
     if (cache_keys.empty()) {
+        RTP_LLM_LOG_WARNING("incrKVCacheRef failed, cache_keys is empty, kvcache_resource: %p", &kvcache_resource);
         return nullptr;
     }
 

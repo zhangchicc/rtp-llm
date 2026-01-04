@@ -89,10 +89,6 @@ public:
         return reuse_blocks_num;
     }
 
-    void setReuseBlocksNum(size_t reuse_blocks_num) {
-        this->reuse_blocks_num = reuse_blocks_num;
-    }
-
     std::string debugString() const {
         std::stringstream debug_string;
         for (int group_id = 0; group_id < group_block_ids.size(); group_id++) {

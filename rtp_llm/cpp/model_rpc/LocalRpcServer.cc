@@ -21,8 +21,7 @@ grpc::Status LocalRpcServer::init(const EngineInitParams&                       
     maga_init_params_ = maga_init_params;
     weight_manager_   = maga_init_params.weight_manager;
     metrics_reporter_ = maga_init_params.metrics_reporter;
-    RTP_LLM_LOG_INFO("LocalRpcServer aux_string %s",
-                     maga_init_params_.misc_config.aux_string.c_str());
+    RTP_LLM_LOG_INFO("LocalRpcServer aux_string %s", maga_init_params_.misc_config.aux_string.c_str());
     const bool use_new_sp_engine = maga_init_params_.sp_config.use_new_sp_engine;
     propose_maga_init_params_    = propose_params.get();
 
@@ -429,8 +428,33 @@ void LocalRpcServer::reportCacheStatusTime(int64_t request_begin_time_us) {
         return grpc::Status(grpc::StatusCode::INTERNAL, "cache manager is null");
     }
     if (!cache_manager->broadcastTp(*request, *response)) {
-        RTP_LLM_LOG_WARNING("broadcast tp failed, request: [%s]", request->DebugString().c_str());
-        const std::string error_msg = "broadcast tp failed, request: [" + request->DebugString() + "]";
+        RTP_LLM_LOG_WARNING("broadcast tp failed");
+    }
+    return grpc::Status::OK;
+}
+
+::grpc::Status LocalRpcServer::StartLoad(::grpc::ServerContext*                context,
+                                         const P2PConnectorStartLoadRequestPB* request,
+                                         P2PConnectorStartLoadResponsePB*      response) {
+    RTP_LLM_LOG_DEBUG("receive start load request from client: %s, request: [%s]",
+                      context->peer().c_str(),
+                      request->DebugString().c_str());
+    if (context->IsCancelled()) {
+        RTP_LLM_LOG_WARNING("start load failed, request is cancelled");
+        return grpc::Status(grpc::StatusCode::CANCELLED, "request is cancelled");
+    }
+    if (!engine_) {
+        RTP_LLM_LOG_WARNING("start load failed, engine is null");
+        return grpc::Status(grpc::StatusCode::INTERNAL, "engine is null");
+    }
+    auto cache_manager = engine_->getCacheManager();
+    if (!cache_manager) {
+        RTP_LLM_LOG_WARNING("start load failed, cache manager is null");
+        return grpc::Status(grpc::StatusCode::INTERNAL, "cache manager is null");
+    }
+    if (!cache_manager->handleRead(*request, *response)) {
+        RTP_LLM_LOG_WARNING("start load failed, request: [%s]", request->DebugString().c_str());
+        const std::string error_msg = "start load failed, request: [" + request->DebugString() + "]";
         return grpc::Status(grpc::StatusCode::INTERNAL, error_msg);
     }
     return grpc::Status::OK;

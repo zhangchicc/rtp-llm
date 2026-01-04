@@ -2,8 +2,28 @@
 
 #include "rtp_llm/cpp/cache/BatchKVCacheResource.h"
 #include "rtp_llm/cpp/cache/connector/AsyncContext.h"
+#include "rtp_llm/cpp/core/Event.h"
 
 namespace rtp_llm {
+
+class ICompleteTokenIds {
+public:
+    virtual ~ICompleteTokenIds() = default;
+
+public:
+    virtual void             appendTokenId(int batch_id, int token_id) = 0;
+    virtual std::vector<int> currentExecuteTokens(int batch_id)        = 0;
+};
+
+struct KVCacheConnectorMeta {
+    int64_t                            request_id;
+    std::string                        unique_key;
+    std::string                        prefill_ip;
+    uint32_t                           prefill_port;
+    int64_t                            deadline_ms;
+    std::shared_ptr<ICompleteTokenIds> complete_token_ids;
+    DeviceEventPtr                     attention_event;
+};
 
 class KVCacheConnector {
 public:
@@ -11,36 +31,25 @@ public:
     virtual ~KVCacheConnector() = default;
 
 public:
-    enum class ConnectorType {
-        Memory = 0,
-        Remote = 1,
-        P2P    = 2
-    };
-
     class Meta {
     public:
-        virtual ~Meta()                                = default;
-        virtual std::pair<int, int> blockRange() const = 0;  // <start_block_index, size>
+        virtual ~Meta() = default;
     };
 
-    class AsyncMatchContext: public AsyncContext {
-    public:
-        ~AsyncMatchContext() override                   = default;
-        virtual size_t        matchedBlockCount() const = 0;
-        virtual ConnectorType connectorType() const     = 0;
-    };
+    virtual bool init() = 0;
 
 public:
-    virtual std::shared_ptr<AsyncMatchContext> asyncMatch(const std::shared_ptr<KVCacheResourceV1>& resource,
-                                                          const std::shared_ptr<Meta>&              meta)                      = 0;
-    virtual std::shared_ptr<AsyncContext>      asyncRead(const std::shared_ptr<KVCacheResourceV1>& resource,
-                                                         const std::shared_ptr<Meta>&              meta,
-                                                         const std::shared_ptr<AsyncMatchContext>& match_context) = 0;
-    virtual std::shared_ptr<AsyncContext>      asyncWrite(const std::shared_ptr<KVCacheResourceV1>& resource,
-                                                          const std::shared_ptr<Meta>&              meta)                      = 0;
-    virtual std::shared_ptr<AsyncContext>      asyncWriteByLayer(int                                       layer_id,
-                                                                 const std::shared_ptr<KVCacheResourceV1>& resource,
-                                                                 const std::shared_ptr<Meta>&              meta)               = 0;
+    virtual std::shared_ptr<AsyncMatchContext> asyncMatch(const std::shared_ptr<KVCacheResourceV1>&    resource,
+                                                          const std::shared_ptr<KVCacheConnectorMeta>& meta)        = 0;
+    virtual std::shared_ptr<AsyncContext>      asyncRead(const std::shared_ptr<KVCacheResourceV1>&    resource,
+                                                         const std::shared_ptr<KVCacheConnectorMeta>& meta,
+                                                         const std::shared_ptr<AsyncMatchContext>&    match_context,
+                                                         const std::pair<int, int>&                   block_range)                    = 0;
+    virtual std::shared_ptr<AsyncContext>      asyncWrite(const std::shared_ptr<KVCacheResourceV1>&    resource,
+                                                          const std::shared_ptr<KVCacheConnectorMeta>& meta)        = 0;
+    virtual std::shared_ptr<AsyncContext>      asyncWriteByLayer(int                                          layer_id,
+                                                                 const std::shared_ptr<KVCacheResourceV1>&    resource,
+                                                                 const std::shared_ptr<KVCacheConnectorMeta>& meta) = 0;
 };
 
 }  // namespace rtp_llm

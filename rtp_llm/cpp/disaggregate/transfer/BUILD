@@ -1,8 +1,9 @@
 package(default_visibility = ["//visibility:public"])
 
-load("@//bazel:arch_select.bzl", "transfer_rdma_deps")
+load("@//bazel:arch_select.bzl", "transfer_rdma_deps", "cuda_register")
 
 transfer_rdma_deps()
+cuda_register()
 
 cc_library(
     name = "arpc_dep",
@@ -84,6 +85,7 @@ cc_library(
     deps = [
         "//rtp_llm/cpp/core:buffer",
         "//rtp_llm/cpp/devices:devices_base",
+        ":cuda_register",
         "//rtp_llm/cpp/utils:core_utils",
     ],
     visibility = ["//visibility:public"],

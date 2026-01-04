@@ -93,6 +93,10 @@ public:
                                const ::BroadcastTpRequestPB* request,
                                ::BroadcastTpResponsePB*      response);
 
+    ::grpc::Status StartLoad(::grpc::ServerContext*                context,
+                             const P2PConnectorStartLoadRequestPB* request,
+                             P2PConnectorStartLoadResponsePB*      response);
+
 public:
     typedef grpc::internal::WriterInterface<GenerateOutputsPB> WriterInterface;
 

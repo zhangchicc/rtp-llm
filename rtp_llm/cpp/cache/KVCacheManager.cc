@@ -21,13 +21,19 @@ KVCacheManager::KVCacheManager(const CacheConfig&                 config,
                                const kmonitor::MetricsReporterPtr metrics_reporter,
                                const KVCacheConfig&               kv_cache_config,
                                const ParallelismConfig&           parallelism_config,
-                               const RuntimeConfig&               runtime_config):
+                               const RuntimeConfig&               runtime_config,
+                               const CacheStoreConfig&            cache_store_config,
+                               const PDSepConfig&                 pd_sep_config,
+                               const ModelConfig&                 model_config):
     config_(config),
     device_(device),
     metrics_reporter_(metrics_reporter),
     kv_cache_config_(kv_cache_config),
     parallelism_config_(parallelism_config),
-    runtime_config_(runtime_config) {
+    runtime_config_(runtime_config),
+    cache_store_config_(cache_store_config),
+    pd_sep_config_(pd_sep_config),
+    model_config_(model_config) {
     if (warmup) {
         config_.block_num = 1;
     } else {
@@ -52,6 +58,8 @@ KVCacheManager::~KVCacheManager() {
 }
 
 bool KVCacheManager::init() {
+    RTP_LLM_LOG_INFO("KVCacheManager init begin");
+
     RTP_LLM_CHECK_WITH_INFO(config_.cache_specs.size() == 1, "cache specs size should be 1");
 
     auto& spec = config_.cache_specs[0];
@@ -68,13 +76,13 @@ bool KVCacheManager::init() {
         RTP_LLM_CHECK_WITH_INFO(false, "SingleTypeKVCacheAllocator only support Full Attention");
         return false;
     }
+    RTP_LLM_LOG_INFO("SingleTypeKVCacheAllocator initialized successfully");
 
-    if (kv_cache_config_.memory_block_cache_size_mb > 0) {
-        if (!initConnectorCoordinator()) {
-            RTP_LLM_LOG_ERROR("init connector coordinator failed");
-            return false;
-        }
+    if (!initConnectorCoordinator()) {
+        RTP_LLM_LOG_ERROR("init connector coordinator failed");
+        return false;
     }
+    RTP_LLM_LOG_INFO("connector coordinator initialized successfully");
     return true;
 }
 
@@ -178,6 +186,9 @@ MallocResult KVCacheManager::malloc(const MallocInfo& malloc_info) {
     if (!malloc_info.batch_kv_cache_resource->first_fill_finished) {
         initCacheKeys(malloc_info.batch_kv_cache_resource, malloc_info.complete_token_ids, seq_size_per_block);
         malloc_info.batch_kv_cache_resource->first_fill_finished = true;
+        RTP_LLM_LOG_INFO("malloc first fill finished, batch_kv_cache_resource: %p, cache_keys size: %ld",
+                         malloc_info.batch_kv_cache_resource.get(),
+                         malloc_info.batch_kv_cache_resource->cacheKeys().size());
     } else {
         updateCacheKeys(malloc_info.batch_kv_cache_resource, malloc_info.complete_token_ids, seq_size_per_block);
     }
@@ -334,8 +345,16 @@ bool KVCacheManager::initConnectorCoordinator() {
                      config_.to_string().c_str(),
                      kv_cache_config_.to_string().c_str(),
                      runtime_config_.to_string().c_str());
-    connector_coordinator_ = std::make_shared<KVCacheConnectorCoordinator>(
-        config_, kv_cache_config_, runtime_config_, allocator_, device_, metrics_reporter_);
+    connector_coordinator_ = std::make_shared<KVCacheConnectorCoordinator>(config_,
+                                                                           kv_cache_config_,
+                                                                           runtime_config_,
+                                                                           cache_store_config_,
+                                                                           parallelism_config_,
+                                                                           pd_sep_config_,
+                                                                           model_config_,
+                                                                           allocator_,
+                                                                           device_,
+                                                                           metrics_reporter_);
     if (!connector_coordinator_->init()) {
         RTP_LLM_LOG_WARNING("connector coordinator init failed");
         connector_coordinator_.reset();
@@ -344,41 +363,60 @@ bool KVCacheManager::initConnectorCoordinator() {
     return true;
 }
 
-std::shared_ptr<AsyncContext>
-KVCacheManager::asyncLoadCache(const std::shared_ptr<KVCacheConnectorReadWriteContext>& connector_context) {
-    if (!connector_coordinator_ || !connector_context) {
-        RTP_LLM_LOG_WARNING(
-            "async load cache failed, coordinator or connector context is null, coordinator: %p, connector context: %p",
-            connector_coordinator_.get(),
-            connector_context.get());
+std::shared_ptr<AsyncContext> KVCacheManager::asyncLoadCache(const KVCacheResourceV1&                     resource,
+                                                             const std::shared_ptr<KVCacheConnectorMeta>& meta,
+                                                             const KVCacheConnectorControlParams& control_params) {
+    if (!connector_coordinator_) {
+        RTP_LLM_LOG_WARNING("async load cache failed, coordinator is null");
         return nullptr;
     }
-    return connector_coordinator_->asyncRead(connector_context, nullptr);
+    return connector_coordinator_->asyncRead(resource, meta, control_params);
 }
 
-std::shared_ptr<AsyncContext>
-KVCacheManager::asyncStoreCache(const std::shared_ptr<KVCacheConnectorReadWriteContext>& connector_context) {
-    if (!connector_coordinator_ || !connector_context) {
-        RTP_LLM_LOG_WARNING(
-            "async store cache failed, coordinator or connector context is null, coordinator: %p, connector context: %p",
-            connector_coordinator_.get(),
-            connector_context.get());
+std::shared_ptr<AsyncContext> KVCacheManager::asyncStoreCache(const KVCacheResourceV1&                     resource,
+                                                              const std::shared_ptr<KVCacheConnectorMeta>& meta,
+                                                              const KVCacheConnectorControlParams& control_params) {
+    if (!connector_coordinator_) {
+        RTP_LLM_LOG_WARNING("async store cache failed, coordinator is null");
         return nullptr;
     }
-    return connector_coordinator_->asyncWrite(connector_context, nullptr);
+    return connector_coordinator_->asyncWrite(resource, meta, control_params);
 }
 
 bool KVCacheManager::broadcastTp(const BroadcastTpRequestPB& request, BroadcastTpResponsePB& response) {
-    if (!request.has_mem_request()) {
-        RTP_LLM_LOG_WARNING("broadcast tp failed, request is invalid, request: [%s]", request.DebugString().c_str());
-        return false;
-    }
     if (!connector_coordinator_) {
-        RTP_LLM_LOG_WARNING("broadcast tp failed, coordinator is null, request: [%s]", request.DebugString().c_str());
+        RTP_LLM_LOG_WARNING("broadcast tp failed, coordinator is null");
         response.mutable_mem_response()->set_success(false);
         return false;
     }
     return connector_coordinator_->broadcastTp(request, response);
+}
+
+bool KVCacheManager::handleRead(const P2PConnectorStartLoadRequestPB& request,
+                                P2PConnectorStartLoadResponsePB&      response) {
+    if (!connector_coordinator_) {
+        RTP_LLM_LOG_WARNING("handle read failed, coordinator is null, request: [%s]", request.DebugString().c_str());
+        response.set_success(false);
+        return false;
+    }
+    return connector_coordinator_->handleRead(request, response);
+}
+
+std::shared_ptr<IKVCacheConnectorCoordinator> KVCacheManager::connectorCoordinatorInterface() const {
+    return std::static_pointer_cast<IKVCacheConnectorCoordinator>(connector_coordinator_);
+}
+
+std::shared_ptr<KVCacheConnectorCoordinator> KVCacheManager::connectorCoordinator() const {
+    return connector_coordinator_;
+}
+
+std::shared_ptr<KVCacheResourceV1> KVCacheManager::incrKVCacheRef(const KVCacheResourceV1& kvcache_resource,
+                                                                  const CacheKeysType&     cache_keys) {
+    if (!allocator_) {
+        RTP_LLM_LOG_WARNING("incrKVCacheRef failed, allocator is null");
+        return nullptr;
+    }
+    return allocator_->incrKVCacheRef(kvcache_resource, cache_keys);
 }
 
 }  // namespace rtp_llm
