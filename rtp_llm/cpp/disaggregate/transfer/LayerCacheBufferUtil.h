@@ -15,14 +15,16 @@ public:
     /// @param resource KVCacheResourceV1 引用
     /// @param batch_id Batch ID（用于索引或计算偏移，当前实现中主要用于兼容性）
     /// @return LayerCacheBuffer 列表，按层 ID 顺序
-    static std::vector<std::shared_ptr<LayerCacheBuffer>> convert(KVCacheResourceV1& resource, int batch_id);
+    static std::vector<std::shared_ptr<LayerCacheBuffer>>
+    convert(KVCacheResourceV1& resource, int batch_id, int start_block_idx = 0, int block_count = -1);
 
     /// @brief 将 KVCacheResourceV1 的指定层转换为单个 LayerCacheBuffer
     /// @param resource KVCacheResourceV1 引用
     /// @param batch_id Batch ID（用于索引或计算偏移，当前实现中主要用于兼容性）
     /// @param layer_id 层 ID
     /// @return LayerCacheBuffer，如果层 ID 无效则返回 nullptr
-    static std::shared_ptr<LayerCacheBuffer> convert(KVCacheResourceV1& resource, int batch_id, int layer_id);
+    static std::shared_ptr<LayerCacheBuffer>
+    convertLayer(KVCacheResourceV1& resource, int batch_id, int layer_id, int start_block_idx, int block_count);
 };
 
 }  // namespace rtp_llm

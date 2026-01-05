@@ -30,7 +30,8 @@ public:
               const std::string&                        prefill_ip,
               uint32_t                                  prefill_port,
               int64_t                                   deadline_ms,
-              const std::shared_ptr<ICompleteTokenIds>& complete_token_ids);
+              const std::shared_ptr<ICompleteTokenIds>& complete_token_ids,
+              const std::pair<int, int>&                block_range);
 
     // Prefill side: handle read request from decode (sync)
     bool handleRead(const std::shared_ptr<KVCacheResourceV1>&            resource,

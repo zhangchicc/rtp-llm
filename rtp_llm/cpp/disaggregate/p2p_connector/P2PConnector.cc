@@ -94,7 +94,8 @@ std::shared_ptr<AsyncContext> P2PConnector::asyncRead(const std::shared_ptr<KVCa
                                  meta->prefill_ip,
                                  meta->prefill_port,
                                  meta->deadline_ms,
-                                 meta->complete_token_ids);
+                                 meta->complete_token_ids,
+                                 block_range);
 }
 
 std::shared_ptr<AsyncContext> P2PConnector::asyncWrite(const std::shared_ptr<KVCacheResourceV1>&    resource,

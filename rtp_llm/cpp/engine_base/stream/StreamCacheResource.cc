@@ -95,6 +95,7 @@ absl::Status StreamCacheResource::incrKVBlock(size_t reserve_step) {
         stream_->setMtpTokenIndex(result.reuse_len);
         stream_->setInitialReuseLength(result.reuse_len);
         stream_->setLocalReuseLength(result.reuse_len);
+        batch_kv_cache_resource_->setReuseBlocksNum(result.reuse_len / seqSizePerBlock());
     }
 
     return absl::OkStatus();
@@ -162,6 +163,7 @@ bool StreamCacheResource::asyncLoadCache() {
     if (load_cache_context_) {
         return true;
     }
+
     auto meta                = std::make_shared<KVCacheConnectorMeta>();
     meta->request_id         = stream_->streamId();
     meta->unique_key         = stream_->uniqueKey();
@@ -190,6 +192,7 @@ bool StreamCacheResource::loadCacheDone() {
         auto read_context = std::dynamic_pointer_cast<FusedAsyncReadContext>(load_cache_context_);
         if (read_context) {
             const int reuse_len = read_context->resource()->reuseBlocksNum() * seqSizePerBlock();
+            RTP_LLM_LOG_INFO("load cache success, reuse_len: %d", reuse_len);
             stream_->setInitialReuseLength(reuse_len);
             stream_->setReuseLength(reuse_len);
             stream_->setLocalReuseLength(reuse_len);

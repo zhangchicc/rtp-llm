@@ -59,13 +59,10 @@ std::shared_ptr<P2PConnectorResourceEntry> P2PConnectorStreamStore::stealResourc
     auto wait_start_time_us = entry->add_time_us;
     resource_map_.erase(it);
     reportMetrics(false, wait_start_time_us);
-    RTP_LLM_LOG_INFO(
-        "P2PConnectorStreamStore::stealResource: unique_key: %s, request_id: %ld, deadline_ms: %ld, add_time_us: %ld, size: %zu",
-        unique_key.c_str(),
-        entry->request_id,
-        entry->deadline_ms,
-        entry->add_time_us,
-        resource_map_.size());
+    // RTP_LLM_LOG_INFO(
+    //     "P2PConnectorStreamStore::stealResource: unique_key: %s, request_id: %ld, deadline_ms: %ld, add_time_us: %ld,
+    //     size: %zu", unique_key.c_str(), entry->request_id, entry->deadline_ms, entry->add_time_us,
+    //     resource_map_.size());
     return entry;
 }
 

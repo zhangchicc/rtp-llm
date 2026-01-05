@@ -27,7 +27,7 @@ void ComputedLayerCacheBuffer::addBuffer(const std::shared_ptr<LayerCacheBuffer>
 
 std::pair<int, std::vector<std::shared_ptr<LayerCacheBuffer>>>
 ComputedLayerCacheBuffer::getBuffers(const std::set<int>& layer_ids) {
-    RTP_LLM_LOG_INFO("ComputedLayerCacheBuffer getBuffers, layer_ids size: %zu", layer_ids.size());
+    // RTP_LLM_LOG_INFO("ComputedLayerCacheBuffer getBuffers, layer_ids size: %zu", layer_ids.size());
     std::lock_guard<std::mutex>                    lock(mutex_);
     std::vector<std::shared_ptr<LayerCacheBuffer>> layer_cache_buffers;
     for (auto layer_id : layer_ids) {
@@ -67,10 +67,9 @@ std::shared_ptr<ComputedLayerCacheBuffer> ComputedLayerCacheBufferStore::addBuff
     auto new_computed_layer_cache_buffer =
         std::make_shared<ComputedLayerCacheBuffer>(request_id, layer_cache_buffer, deadline_ms);
     computed_buffers_[request_id] = new_computed_layer_cache_buffer;
-    RTP_LLM_LOG_INFO(
-        "ComputedLayerCacheBufferStore addBuffer success, request_id: %ld, new_computed_layer_cache_buffer use_count: %zu",
-        request_id,
-        new_computed_layer_cache_buffer.use_count());
+    // RTP_LLM_LOG_INFO(
+    //     "ComputedLayerCacheBufferStore addBuffer success, request_id: %ld, new_computed_layer_cache_buffer use_count:
+    //     %zu", request_id, new_computed_layer_cache_buffer.use_count());
     return new_computed_layer_cache_buffer;
 }
 

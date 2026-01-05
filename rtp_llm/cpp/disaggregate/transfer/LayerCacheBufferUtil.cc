@@ -4,18 +4,18 @@
 
 namespace rtp_llm {
 
-std::vector<std::shared_ptr<LayerCacheBuffer>> LayerCacheBufferUtil::convert(KVCacheResourceV1& resource,
-                                                                             int                batch_id) {
+std::vector<std::shared_ptr<LayerCacheBuffer>>
+LayerCacheBufferUtil::convert(KVCacheResourceV1& resource, int batch_id, int start_block_idx, int block_count) {
     std::vector<std::shared_ptr<LayerCacheBuffer>> layer_cache_buffers;
 
     const auto& layer_block_ids = resource.layerBlockIds();
     const auto& cache_keys      = resource.cacheKeys();
-    RTP_LLM_LOG_INFO("LayerCacheBufferUtil::convert: layer_block_ids size: %zu, cache_keys size: %zu",
-                     layer_block_ids.size(),
-                     cache_keys.size());
+    // RTP_LLM_LOG_INFO("LayerCacheBufferUtil::convert: layer_block_ids size: %zu, cache_keys size: %zu",
+    //                  layer_block_ids.size(),
+    //                  cache_keys.size());
 
     for (size_t i = 0; i < layer_block_ids.size(); ++i) {
-        auto layer_cache_buffer = convert(resource, batch_id, i);
+        auto layer_cache_buffer = convertLayer(resource, batch_id, i, start_block_idx, block_count);
         if (layer_cache_buffer) {
             layer_cache_buffers.push_back(layer_cache_buffer);
         }
@@ -23,8 +23,8 @@ std::vector<std::shared_ptr<LayerCacheBuffer>> LayerCacheBufferUtil::convert(KVC
     return layer_cache_buffers;
 }
 
-std::shared_ptr<LayerCacheBuffer>
-LayerCacheBufferUtil::convert(KVCacheResourceV1& resource, int batch_id, int layer_id) {
+std::shared_ptr<LayerCacheBuffer> LayerCacheBufferUtil::convertLayer(
+    KVCacheResourceV1& resource, int batch_id, int layer_id, int start_block_idx, int block_count) {
     const auto& layer_block_ids = resource.layerBlockIds();
     const auto& cache_keys      = resource.cacheKeys();
 
@@ -35,16 +35,25 @@ LayerCacheBufferUtil::convert(KVCacheResourceV1& resource, int batch_id, int lay
         return nullptr;
     }
 
-    // 创建 LayerCacheBuffer
-    auto        layer_cache_buffer = std::make_shared<LayerCacheBuffer>(layer_id);
-    const auto& block_ids          = layer_block_ids[layer_id]->blocks();
-    auto        block_ids_size     = std::min(block_ids.size(), cache_keys.size());
+    if (start_block_idx < 0 || block_count == 0) {
+        RTP_LLM_LOG_WARNING(
+            "LayerCacheBufferUtil::convert: invalid start_block_idx %d, block_count %d", start_block_idx, block_count);
+        return nullptr;
+    }
 
-    // 将 block_ids 和 cache_keys 配对添加到 LayerCacheBuffer
-    // 注意：cache_keys 可能与 block_ids 的数量不一致，需要确保索引不越界
+    const auto& block_ids          = layer_block_ids[layer_id]->blocks();
+    auto        actual_block_count = std::min(block_ids.size(), cache_keys.size());
+    auto        block_ids_size = block_count > 0 ? std::min(block_count, int(actual_block_count - start_block_idx)) :
+                                                   (int(actual_block_count - start_block_idx));
+    if (block_ids_size <= 0) {
+        RTP_LLM_LOG_WARNING("LayerCacheBufferUtil::convert: block_ids_size %d", block_ids_size);
+        return nullptr;
+    }
+
+    auto layer_cache_buffer = std::make_shared<LayerCacheBuffer>(layer_id);
     for (size_t i = 0; i < block_ids_size; ++i) {
-        int     block_id = block_ids[i];
-        int64_t key      = cache_keys[i];
+        int     block_id = block_ids[start_block_idx + i];
+        int64_t key      = cache_keys[start_block_idx + i];
         layer_cache_buffer->addBlockId(key, block_id);
     }
 

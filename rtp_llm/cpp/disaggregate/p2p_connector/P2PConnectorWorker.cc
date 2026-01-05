@@ -111,7 +111,7 @@ bool P2PConnectorWorker::writeByLayer(int                                       
     RTP_LLM_LOG_DEBUG("P2PConnectorWorker writeByLayer start, request_id: %ld, layer_id: %d", request_id, layer_id);
     auto collector = std::make_shared<P2PConnectorServerWorkerStoreMetricsCollector>();
 
-    auto layer_cache_buffer = LayerCacheBufferUtil::convert(*resource, 0, layer_id);
+    auto layer_cache_buffer = LayerCacheBufferUtil::convertLayer(*resource, 0, layer_id, 0, -1);
     if (!layer_cache_buffer) {
         RTP_LLM_LOG_ERROR("P2PConnectorWorker writeByLayer failed: layer_cache_buffer is null");
         if (metrics_reporter_) {

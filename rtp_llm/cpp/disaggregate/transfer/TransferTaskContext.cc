@@ -95,7 +95,6 @@ std::vector<std::pair<BufferPtr, std::shared_ptr<::transfer::BlockBufferInfo>>> 
         transfer_count++;
     }
     collector_->block_count = transfer_count;
-
     if (transfer_count != layer_cache_buffer_->blockIdMap().size()) {
         RTP_LLM_LOG_WARNING("transfer count mismatch, unique_key: %s, layer_id: %d, expected: %d, actual: %d",
                             unique_key_.c_str(),
@@ -104,6 +103,12 @@ std::vector<std::pair<BufferPtr, std::shared_ptr<::transfer::BlockBufferInfo>>> 
                             transfer_count);
         return {};
     }
+    RTP_LLM_LOG_INFO(
+        "getTcpBlockPair, unique_key: %s, layer_id: %d, transfer_count: %d, layer_cache_buffer block_id_map size: %zu",
+        unique_key_.c_str(),
+        layer_id,
+        transfer_count,
+        layer_cache_buffer_->blockIdMap().size());
 
     return block_pair;
 }
@@ -176,6 +181,12 @@ std::vector<std::pair<BufferPtr, std::shared_ptr<RemoteBuffer>>> TransferTaskCon
         return {};
     }
     collector_->block_count = transfer_count;
+    RTP_LLM_LOG_INFO(
+        "getRdmaBlockPair, unique_key: %s, layer_id: %d, transfer_count: %d, layer_cache_buffer block_id_map size: %zu",
+        unique_key_.c_str(),
+        layer_id,
+        transfer_count,
+        layer_cache_buffer_->blockIdMap().size());
     return block_pair;
 }
 

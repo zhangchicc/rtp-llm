@@ -63,6 +63,7 @@ MallocResult SingleTypeKVCacheAllocator::initMallocForCommonLen(const MallocInfo
         match_cost_time_us                = currentTimeUs() - match_begin_time_us;
         reuse_len                         = static_cast<int>(match_result.reuse_length);
         full_kv_cache_group_->reference(blocks_0, match_result.block_indices);
+        RTP_LLM_LOG_INFO("initMallocForCommonLen, reuse_len: %d", reuse_len);
     }
 
     if (!full_kv_cache_group_->malloc(blocks_0, common_seq_len)) {
@@ -221,6 +222,7 @@ std::shared_ptr<KVCacheResourceV1> SingleTypeKVCacheAllocator::incrKVCacheRef(co
 
     auto selected_resource = std::make_shared<KVCacheResourceV1>();
     selected_resource->initGroups(1, config_.layer_num);
+    selected_resource->setReuseBlocksNum(kvcache_resource.reuseBlocksNum());
 
     CacheKeysType&   selected_cache_keys = selected_resource->cacheKeys();
     BlockIndicesType selected_blocks;

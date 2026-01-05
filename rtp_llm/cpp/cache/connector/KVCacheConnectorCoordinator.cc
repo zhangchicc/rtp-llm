@@ -147,6 +147,9 @@ KVCacheConnectorCoordinator::asyncRead(const KVCacheResourceV1&                 
         [allocator = allocator_, incr_resource_ptr = incr_resource_ptr](KVCacheResourceV1* resource) {
             allocator->decrKVCacheRef(*resource);
         });
+    RTP_LLM_LOG_INFO("asyncRead, resource origin reuse_num: %d, incr_resource reuse_num: %d",
+                     resource.reuseBlocksNum(),
+                     incr_resource_ptr->reuseBlocksNum());
 
     std::vector<std::shared_ptr<AsyncContext>> contexts;
     contexts.reserve(connectors_.size());
@@ -350,8 +353,10 @@ void KVCacheConnectorCoordinator::updateOnce() {
             continue;
         }
         // match 成功，启动 read
-        int                                        reuse_num      = fused_read_context->resource()->reuseBlocksNum();
-        auto                                       match_contexts = fused_read_context->fusedMatchContext()->contexts();
+        int  reuse_num      = fused_read_context->resource()->reuseBlocksNum();
+        auto match_contexts = fused_read_context->fusedMatchContext()->contexts();
+        RTP_LLM_LOG_INFO(
+            "read context match success, reuse_num: %d, match_contexts size: %zu", reuse_num, match_contexts.size());
         std::vector<std::shared_ptr<AsyncContext>> connector_read_contexts;
         for (size_t i = 0; i < match_contexts.size(); i++) {
             auto match_context = std::dynamic_pointer_cast<AsyncMatchContext>(match_contexts.at(i));
@@ -369,9 +374,18 @@ void KVCacheConnectorCoordinator::updateOnce() {
                                      {reuse_num, match_context->matchedBlockCount() - reuse_num});
             if (connector_read_context) {
                 connector_read_contexts.emplace_back(connector_read_context);
-                reuse_num = match_context->matchedBlockCount();
+                if (match_context->connectorType() != ConnectorType::P2P) {
+                    // 非 P2P，更新 reuse_num, p2p will always reuse all blocks
+                    reuse_num = match_context->matchedBlockCount();
+                }
             }
         }
+        RTP_LLM_LOG_INFO("read context match success, reuse_num: %d, connector_read_contexts size: %zu",
+                         reuse_num,
+                         connector_read_contexts.size());
+        // update reuse blocks num
+        fused_read_context->resource()->setReuseBlocksNum(reuse_num);
+        RTP_LLM_LOG_INFO("read context update reuse blocks num, reuse_num: %d", reuse_num);
         fused_read_context->setFusedReadContext(std::make_shared<FusedAsyncContext>(connector_read_contexts));
         // 从 match 队列移除，放入 read 队列
         it = match_context_list_.erase(it);

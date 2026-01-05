@@ -57,7 +57,8 @@ P2PConnectorScheduler::asyncRead(const std::shared_ptr<KVCacheResourceV1>& resou
                                  const std::string&                        prefill_ip,
                                  uint32_t                                  prefill_port,
                                  int64_t                                   deadline_ms,
-                                 const std::shared_ptr<ICompleteTokenIds>& complete_token_ids) {
+                                 const std::shared_ptr<ICompleteTokenIds>& complete_token_ids,
+                                 const std::pair<int, int>&                block_range) {
     RTP_LLM_LOG_DEBUG(
         "P2PConnectorScheduler asyncRead start, request_id: %ld, unique_key: %s, prefill_ip: %s, prefill_port: %u",
         request_id,
@@ -72,7 +73,7 @@ P2PConnectorScheduler::asyncRead(const std::shared_ptr<KVCacheResourceV1>& resou
     }
 
     // convert resource to layer cache buffers
-    auto layer_cache_buffers = LayerCacheBufferUtil::convert(*resource, 0);
+    auto layer_cache_buffers = LayerCacheBufferUtil::convert(*resource, 0, block_range.first, block_range.second);
     if (layer_cache_buffers.empty()) {
         RTP_LLM_LOG_WARNING("P2PConnectorScheduler asyncRead: layer_cache_buffers is empty");
         collector->success = false;

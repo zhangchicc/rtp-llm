@@ -89,6 +89,10 @@ public:
         return reuse_blocks_num;
     }
 
+    void setReuseBlocksNum(size_t reuse_blocks_num) {
+        this->reuse_blocks_num = reuse_blocks_num;
+    }
+
     std::string debugString() const {
         std::stringstream debug_string;
         for (int group_id = 0; group_id < group_block_ids.size(); group_id++) {
@@ -220,6 +224,12 @@ public:
     void setBatchCacheKeys(int batch_id, const CacheKeysType& keys) {
         RTP_LLM_CHECK(batch_id >= 0 && static_cast<size_t>(batch_id) < batch_resource.size());
         batch_resource[batch_id].cacheKeys() = keys;
+    }
+
+    void setReuseBlocksNum(size_t reuse_blocks_num) {
+        for (auto& resource : batch_resource) {
+            resource.setReuseBlocksNum(reuse_blocks_num);
+        }
     }
 
     void check() const {
