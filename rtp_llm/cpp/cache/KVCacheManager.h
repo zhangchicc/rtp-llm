@@ -111,6 +111,7 @@ private:
     const PDSepConfig                  pd_sep_config_;
     const ModelConfig                  model_config_;
 
+    bool              warmup_;
     std::atomic<bool> stop_{false};
     std::thread       metrics_reporter_thread_;
 

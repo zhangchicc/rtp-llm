@@ -33,8 +33,9 @@ KVCacheManager::KVCacheManager(const CacheConfig&                 config,
     runtime_config_(runtime_config),
     cache_store_config_(cache_store_config),
     pd_sep_config_(pd_sep_config),
-    model_config_(model_config) {
-    if (warmup) {
+    model_config_(model_config),
+    warmup_(warmup) {
+    if (warmup_) {
         config_.block_num = 1;
     } else {
         allocateAndSync();
@@ -72,17 +73,16 @@ bool KVCacheManager::init() {
             stop_.store(false, std::memory_order_relaxed);
             metrics_reporter_thread_ = std::thread(&KVCacheManager::reportMetricsLoop, this);
         }
+        RTP_LLM_LOG_INFO("SingleTypeKVCacheAllocator initialized successfully");
     } else {
         RTP_LLM_CHECK_WITH_INFO(false, "SingleTypeKVCacheAllocator only support Full Attention");
         return false;
     }
-    RTP_LLM_LOG_INFO("SingleTypeKVCacheAllocator initialized successfully");
 
-    if (!initConnectorCoordinator()) {
+    if (!warmup_ && !initConnectorCoordinator()) {
         RTP_LLM_LOG_ERROR("init connector coordinator failed");
         return false;
     }
-    RTP_LLM_LOG_INFO("connector coordinator initialized successfully");
     return true;
 }
 
@@ -360,6 +360,7 @@ bool KVCacheManager::initConnectorCoordinator() {
         connector_coordinator_.reset();
         return false;
     }
+    RTP_LLM_LOG_INFO("connector coordinator initialized successfully");
     return true;
 }
 
@@ -367,7 +368,6 @@ std::shared_ptr<AsyncContext> KVCacheManager::asyncLoadCache(const KVCacheResour
                                                              const std::shared_ptr<KVCacheConnectorMeta>& meta,
                                                              const KVCacheConnectorControlParams& control_params) {
     if (!connector_coordinator_) {
-        RTP_LLM_LOG_WARNING("async load cache failed, coordinator is null");
         return nullptr;
     }
     return connector_coordinator_->asyncRead(resource, meta, control_params);
@@ -377,7 +377,6 @@ std::shared_ptr<AsyncContext> KVCacheManager::asyncStoreCache(const KVCacheResou
                                                               const std::shared_ptr<KVCacheConnectorMeta>& meta,
                                                               const KVCacheConnectorControlParams& control_params) {
     if (!connector_coordinator_) {
-        RTP_LLM_LOG_WARNING("async store cache failed, coordinator is null");
         return nullptr;
     }
     return connector_coordinator_->asyncWrite(resource, meta, control_params);
