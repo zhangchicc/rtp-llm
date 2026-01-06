@@ -9,10 +9,10 @@ LayerCacheBufferUtil::convert(KVCacheResourceV1& resource, int batch_id, int sta
     std::vector<std::shared_ptr<LayerCacheBuffer>> layer_cache_buffers;
 
     const auto& layer_block_ids = resource.layerBlockIds();
-    const auto& cache_keys      = resource.cacheKeys();
-    // RTP_LLM_LOG_INFO("LayerCacheBufferUtil::convert: layer_block_ids size: %zu, cache_keys size: %zu",
-    //                  layer_block_ids.size(),
-    //                  cache_keys.size());
+    // const auto& cache_keys      = resource.cacheKeys();
+    //  RTP_LLM_LOG_INFO("LayerCacheBufferUtil::convert: layer_block_ids size: %zu, cache_keys size: %zu",
+    //                   layer_block_ids.size(),
+    //                   cache_keys.size());
 
     for (size_t i = 0; i < layer_block_ids.size(); ++i) {
         auto layer_cache_buffer = convertLayer(resource, batch_id, i, start_block_idx, block_count);
