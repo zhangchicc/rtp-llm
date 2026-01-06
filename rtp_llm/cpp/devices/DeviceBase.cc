@@ -151,20 +151,11 @@ void DeviceBase::setCacheStore(std::shared_ptr<rtp_llm::CacheStore> cache_store)
 }
 
 void DeviceBase::writeCacheStore(const WriteCacheParams& params) {
-    RTP_LLM_LOG_INFO("DeviceBase writeCacheStore, cache_store_: %p, connector_coordinator_: %p",
-                     cache_store_.get(),
-                     connector_coordinator_.get());
     if (params.cache_store_inputs.has_value() && params.kv_cache.has_value()) {
         if (cache_store_) {
-            RTP_LLM_LOG_INFO(
-                "DeviceBase writeCacheStore, write cache store, cache_store_: %p, connector_coordinator_: %p",
-                cache_store_.get(),
-                connector_coordinator_.get());
             writeCacheStore(params.cache_store_inputs.value(), params.kv_cache.value(), params.mla_kvcache);
         }
         if (connector_coordinator_) {
-            RTP_LLM_LOG_INFO("DeviceBase writeCacheStore, write cache to connector, connector_coordinator_: %p",
-                             connector_coordinator_.get());
             writeCacheToConnector(params);
         }
     }
