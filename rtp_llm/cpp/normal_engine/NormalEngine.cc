@@ -116,6 +116,7 @@ NormalEngine::~NormalEngine() {
 
 absl::StatusOr<GenerateStreamPtr> NormalEngine::preRun(const std::shared_ptr<GenerateInput>& generate_input,
                                                        preRunMode                            mode) {
+    RTP_LLM_LOG_INFO("preRun, mode %d", mode);
     auto stream = std::make_shared<NormalGenerateStream>(generate_input,
                                                          model_config_,
                                                          runtime_config,
@@ -123,6 +124,7 @@ absl::StatusOr<GenerateStreamPtr> NormalEngine::preRun(const std::shared_ptr<Gen
                                                          nullptr,
                                                          0,
                                                          mode == preRunMode::prefill_warm_up);
+    RTP_LLM_LOG_INFO("preRun, stream %p", stream.get());
     if (mode == preRunMode::decode_warm_up) {
         stream->setIsContextStream(false);
         stream->fakeInitKVBlock();

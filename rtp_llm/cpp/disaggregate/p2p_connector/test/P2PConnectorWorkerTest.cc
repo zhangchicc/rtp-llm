@@ -203,7 +203,7 @@ protected:
     }
 
     // 创建测试用的 KVCacheResourceV1
-    std::shared_ptr<KVCacheResourceV1> createKVCacheResource(int layer_id, int num_blocks = 2) {
+    KVCacheResourceV1Ptr createKVCacheResource(int layer_id, int num_blocks = 2) {
         auto resource = std::make_shared<KVCacheResourceV1>();
 
         for (int i = 0; i < model_config_.num_layers; ++i) {

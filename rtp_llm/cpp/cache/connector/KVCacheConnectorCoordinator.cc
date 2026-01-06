@@ -120,13 +120,14 @@ bool KVCacheConnectorCoordinator::init() {
     }
 
     if (!inited) {
-        RTP_LLM_LOG_INFO("connector coordinator is not initialized");
+        RTP_LLM_LOG_INFO("connector coordinator is not initialized, role type: %d", pd_sep_config_.role_type);
         return true;
     }
 
     if (!initUpdateThread()) {
         return false;
     }
+    RTP_LLM_LOG_INFO("connector coordinator initialized, role type: %d", pd_sep_config_.role_type);
     return true;
 }
 
@@ -147,9 +148,7 @@ KVCacheConnectorCoordinator::asyncRead(const KVCacheResourceV1&                 
         [allocator = allocator_, incr_resource_ptr = incr_resource_ptr](KVCacheResourceV1* resource) {
             allocator->decrKVCacheRef(*resource);
         });
-    RTP_LLM_LOG_INFO("asyncRead, resource origin reuse_num: %d, incr_resource reuse_num: %d",
-                     resource.reuseBlocksNum(),
-                     incr_resource_ptr->reuseBlocksNum());
+    RTP_LLM_LOG_INFO("reuse info reuse length: %d", meta->reuse_info->reuse_length);
 
     std::vector<std::shared_ptr<AsyncContext>> contexts;
     contexts.reserve(connectors_.size());
@@ -171,8 +170,12 @@ KVCacheConnectorCoordinator::asyncRead(const KVCacheResourceV1&                 
                 }
             } else if (pd_sep_config_.role_type == RoleType::PREFILL) {
                 // prefill will hold the resource
-                p2p_connector_->addResource(
-                    meta->unique_key, meta->request_id, meta->complete_token_ids, resource_ptr, meta->deadline_ms);
+                p2p_connector_->addResource(meta->unique_key,
+                                            meta->request_id,
+                                            meta->complete_token_ids,
+                                            resource_ptr,
+                                            meta->reuse_info,
+                                            meta->deadline_ms);
             }
         }
     }
@@ -183,6 +186,8 @@ KVCacheConnectorCoordinator::asyncRead(const KVCacheResourceV1&                 
     auto                                   fused_match_context = std::make_shared<FusedAsyncContext>(contexts);
     std::shared_ptr<FusedAsyncReadContext> fused_read_context(
         new FusedAsyncReadContext(fused_match_context, resource_ptr, meta));
+    fused_read_context->setReuseBlockNum(meta->reuse_info->reuseBlocksNum());
+
     {
         std::lock_guard<std::mutex> lock(update_mutex_);
         match_context_list_.push_back(fused_read_context);  // 先放入 match 队列
@@ -353,7 +358,7 @@ void KVCacheConnectorCoordinator::updateOnce() {
             continue;
         }
         // match 成功，启动 read
-        int  reuse_num      = fused_read_context->resource()->reuseBlocksNum();
+        int  reuse_num      = fused_read_context->reuseBlockNum();
         auto match_contexts = fused_read_context->fusedMatchContext()->contexts();
         RTP_LLM_LOG_INFO(
             "read context match success, reuse_num: %d, match_contexts size: %zu", reuse_num, match_contexts.size());
@@ -383,9 +388,11 @@ void KVCacheConnectorCoordinator::updateOnce() {
         RTP_LLM_LOG_INFO("read context match success, reuse_num: %d, connector_read_contexts size: %zu",
                          reuse_num,
                          connector_read_contexts.size());
+
         // update reuse blocks num
-        fused_read_context->resource()->setReuseBlocksNum(reuse_num);
+        fused_read_context->setReuseBlockNum(reuse_num);
         RTP_LLM_LOG_INFO("read context update reuse blocks num, reuse_num: %d", reuse_num);
+
         fused_read_context->setFusedReadContext(std::make_shared<FusedAsyncContext>(connector_read_contexts));
         // 从 match 队列移除，放入 read 队列
         it = match_context_list_.erase(it);
@@ -437,23 +444,6 @@ bool KVCacheConnectorCoordinator::handleRead(const P2PConnectorStartLoadRequestP
 
     auto ret = p2p_connector_->handleRead(request, response);
     return ret.ok();
-}
-
-void KVCacheConnectorCoordinator::cacheStream(const std::string&                        unique_key,
-                                              int64_t                                   request_id,
-                                              const std::shared_ptr<ICompleteTokenIds>& complete_token_ids,
-                                              const std::shared_ptr<KVCacheResourceV1>& kv_cache_resource,
-                                              int64_t                                   deadline_ms) {
-    if (stop_.load()) {
-        RTP_LLM_LOG_WARNING("cacheStream failed, coordinator is stopped");
-        return;
-    }
-
-    if (!p2p_connector_) {
-        RTP_LLM_LOG_WARNING("cacheStream failed, p2p connector is null");
-        return;
-    }
-    p2p_connector_->addResource(unique_key, request_id, complete_token_ids, kv_cache_resource, deadline_ms);
 }
 
 ICompleteTokenIdImpl::ICompleteTokenIdImpl(const std::shared_ptr<CompleteTokenIds>& complete_token_ids):

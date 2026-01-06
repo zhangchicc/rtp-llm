@@ -23,11 +23,12 @@ GenerateStream::GenerateStream(const shared_ptr<GenerateInput>& input,
                                kmonitor::MetricsReporterPtr     metrics_reporter,
                                size_t                           extra_reserve_token_num,
                                bool                             perf_test):
+    reuse_info_(new ReuseInfo(model_config.attn_config.tokens_per_block)),
     generate_input_(input),
     max_seq_len_(model_config.max_seq_len),
     vocab_size_(model_config.vocab_size),
     stream_cache_resource_(std::make_shared<StreamCacheResource>(
-        this, resource_context, input->need_release_resource, input->generate_config->adapter_name)),
+        this, resource_context, reuse_info_, input->need_release_resource, input->generate_config->adapter_name)),
     need_release_resource_(input->need_release_resource),
     gen_timeline_(input->generate_config->gen_timeline),
     metrics_reporter_(metrics_reporter),
@@ -37,6 +38,16 @@ GenerateStream::GenerateStream(const shared_ptr<GenerateInput>& input,
     mm_position_ids_style_(PositionIdsStyle(model_config.mm_model_config.mm_position_ids_style)),
     dtype_(model_config.data_type),
     hidden_size_(model_config.hidden_size) {
+
+    RTP_LLM_LOG_INFO("GenerateStream init, reuse_info_ %p", reuse_info_.get());
+    // 初始化 reuse info 的 cache 配置 (全局 + 请求级别)
+    reuse_info_->init(resource_context.reuse_cache,
+                      resource_context.enable_3fs,
+                      resource_context.enable_memory_block_cache,
+                      input->generate_config->reuse_cache,
+                      input->generate_config->enable_3fs,
+                      input->generate_config->enable_memory_block_cache);
+
     if (!updatePrefix(resource_context.system_prompt)) {
         return;
     }
@@ -333,24 +344,24 @@ int GenerateStream::inputPrefixLength() const {
 }
 
 int GenerateStream::prefixLength() const {
-    return reuse_length_;
+    return reuse_info_->reuse_length;
 }
 
 int GenerateStream::reuseLength() const {
-    return reuse_length_;
+    return reuse_info_->reuse_length;
 }
 
 int GenerateStream::initialReuseLength() const {
-    return initial_reuse_length_;
+    return reuse_info_->initial_reuse_length;
 }
 
 void GenerateStream::setReuseLength(int reuse_length) {
-    reuse_length_ = reuse_length;
+    reuse_info_->reuse_length = reuse_length;
     if (generate_input_->mm_locs) {
         auto& locs = generate_input_->mm_locs.value();
         for (int i = locs->size() - 1; i >= 0; --i) {
-            if (reuse_length_ > *locs->dataWithOffset<int32_t>(i)) {
-                reuse_mm_length_ = i + 1;
+            if (reuse_info_->reuse_length > *locs->dataWithOffset<int32_t>(i)) {
+                reuse_info_->reuse_mm_length = i + 1;
                 break;
             }
         }
@@ -358,23 +369,23 @@ void GenerateStream::setReuseLength(int reuse_length) {
 }
 
 void GenerateStream::setLocalReuseLength(int length) {
-    local_reuse_length_ = length;
+    reuse_info_->local_reuse_length = length;
 }
 
 void GenerateStream::setRemoteReuseLength(int length) {
-    remote_reuse_length_ = length;
+    reuse_info_->remote_reuse_length = length;
 }
 
 int GenerateStream::localReuseLength() const {
-    return local_reuse_length_;
+    return reuse_info_->local_reuse_length;
 }
 
 int GenerateStream::remoteReuseLength() const {
-    return remote_reuse_length_;
+    return reuse_info_->remote_reuse_length;
 }
 
 void GenerateStream::setInitialReuseLength(int initial_reuse_length) {
-    initial_reuse_length_ = initial_reuse_length;
+    reuse_info_->initial_reuse_length = initial_reuse_length;
 }
 
 void GenerateStream::incLastOutputPos() {
@@ -410,7 +421,7 @@ int GenerateStream::currentExecuteTokenSize() {
 std::vector<torch::Tensor> GenerateStream::multimodalFeatures() const {
     if (generate_input_->multimodal_features) {
         auto& features = generate_input_->multimodal_features.value();
-        return std::vector<torch::Tensor>(features.begin() + reuse_mm_length_, features.end());
+        return std::vector<torch::Tensor>(features.begin() + reuse_info_->reuse_mm_length, features.end());
     } else {
         return std::vector<torch::Tensor>();
     }
@@ -425,7 +436,7 @@ rtp_llm::BufferPtr GenerateStream::multimodalLocations() const {
         return nullptr;
     }
     auto& mm_locs = generate_input_->mm_locs.value();
-    return mm_locs->slice(reuse_mm_length_, mm_locs->size() - reuse_mm_length_);
+    return mm_locs->slice(reuse_info_->reuse_mm_length, mm_locs->size() - reuse_info_->reuse_mm_length);
 }
 
 vector<vector<int>> GenerateStream::multimodalIntervals() const {
@@ -950,7 +961,7 @@ void GenerateStream::reportMetric() {
         collector.is_streaming_qps  = generate_input_->generate_config->is_streaming;
         collector.not_streaming_qps = !generate_input_->generate_config->is_streaming;
         if (finished() || cancelled || timeout) {
-            collector.reuse_length           = initial_reuse_length_;
+            collector.reuse_length           = reuse_info_->initial_reuse_length;
             collector.input_token_length     = inputLength();
             collector.output_token_length    = outputTokenLen();
             collector.iterate_count          = iter_count_;
@@ -980,7 +991,7 @@ std::string GenerateStream::debugString() const {
     debug_string << "GenerateStream {"
                  << "generate_input:" << generate_input_->debugString() << ", max_seq_len:" << max_seq_len_
                  << ", input_length:" << inputLength() << ", seq_length:" << seqLength()
-                 << ", reuse_length:" << reuse_length_ << ", current_batch_size:" << currentBatchSize()
+                 << ", reuse_length:" << reuse_info_->reuse_length << ", current_batch_size:" << currentBatchSize()
                  << ", next_batch_size:" << nextBatchSize() << ", need_release_resource: " << need_release_resource_
                  << ", sp_edit_search_index: " << sp_edit_search_index_ << ", mtp token indices" << mtp_token_index_
                  << ", need_remote_generate: " << need_remote_generate_

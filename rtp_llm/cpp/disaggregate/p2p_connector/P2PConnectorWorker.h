@@ -41,10 +41,7 @@ public:
     bool init(int64_t store_wait_timeout_ms = 10 * 1000);
 
 public:
-    bool writeByLayer(int                                       layer_id,
-                      const std::shared_ptr<KVCacheResourceV1>& resource,
-                      int64_t                                   request_id,
-                      DeviceEventPtr                            event);
+    bool writeByLayer(int layer_id, const KVCacheResourceV1Ptr& resource, int64_t request_id, DeviceEventPtr event);
 
     bool handleRead(int64_t                                              request_id,
                     const std::string&                                   unique_key,

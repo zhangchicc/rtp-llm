@@ -13,7 +13,7 @@ void StreamCacheResource::init(int batch_size) {
     batch_kv_cache_resource_->resetBatchSize(batch_size);
     int layer_num = resource_context_.cache_manager ? resource_context_.cache_manager->cacheConfig().layer_num : 1;
     batch_kv_cache_resource_->initGroups(1, layer_num);
-    batch_kv_cache_resource_->enable_reuse_cache = reuseCache();
+    batch_kv_cache_resource_->enable_reuse_cache = reuse_info_->reuse_cache;
 }
 
 void StreamCacheResource::releaseResource() {
@@ -47,7 +47,7 @@ int StreamCacheResource::tryReleaseKVBlock(size_t nums) {
 
     if (total_blocks > 0) {
         // TODO(xinfei.sxf) fix it, after finshed and remote running commit.
-        if (reuseCache()) {
+        if (reuse_info_->reuse_cache) {
             InsertInfo insert_info{batch_kv_cache_resource_, stream_->completeTokenIdsPtr(), false};
             resource_context_.cache_manager->insertIntoCache(insert_info);
         }
@@ -91,11 +91,10 @@ absl::Status StreamCacheResource::incrKVBlock(size_t reserve_step) {
     }
 
     if (result.reuse_len > 0) {
-        stream_->setReuseLength(result.reuse_len);
+        reuse_info_->reuse_length         = result.reuse_len;
+        reuse_info_->initial_reuse_length = result.reuse_len;
+        reuse_info_->local_reuse_length   = result.reuse_len;
         stream_->setMtpTokenIndex(result.reuse_len);
-        stream_->setInitialReuseLength(result.reuse_len);
-        stream_->setLocalReuseLength(result.reuse_len);
-        batch_kv_cache_resource_->setReuseBlocksNum(result.reuse_len / seqSizePerBlock());
     }
 
     return absl::OkStatus();
@@ -147,18 +146,6 @@ int StreamCacheResource::mallocFailedTimes() const {
     return malloc_failed_times_;
 }
 
-bool StreamCacheResource::reuseCache() const {
-    return resource_context_.reuse_cache && stream_->reuseCache();
-}
-
-bool StreamCacheResource::enable3FS() const {
-    return resource_context_.enable_3fs && stream_->enable3FS();
-}
-
-bool StreamCacheResource::enableMemoryBlockCache() const {
-    return resource_context_.enable_memory_block_cache && stream_->enableMemoryBlockCache();
-}
-
 bool StreamCacheResource::asyncLoadCache() {
     if (load_cache_context_) {
         return true;
@@ -169,8 +156,11 @@ bool StreamCacheResource::asyncLoadCache() {
     meta->unique_key         = stream_->uniqueKey();
     meta->prefill_ip         = stream_->prefillAddr().first;
     meta->prefill_port       = stream_->prefillAddr().second;
-    meta->deadline_ms        = stream_->deadlineUs() / 1000;
+    meta->deadline_ms        = stream_->deadlineMs();
     meta->complete_token_ids = std::make_shared<ICompleteTokenIdImpl>(stream_->completeTokenIdsPtr());
+    meta->reuse_info         = reuse_info_;
+
+    RTP_LLM_LOG_INFO("stream [%ld] async load cache, deadline_ms: %ld", stream_->streamId(), meta->deadline_ms);
 
     KVCacheConnectorControlParams control_params;
     control_params.enable_memory_cache = enableMemoryBlockCache();
@@ -191,11 +181,12 @@ bool StreamCacheResource::loadCacheDone() {
     if (load_cache_context_->success()) {
         auto read_context = std::dynamic_pointer_cast<FusedAsyncReadContext>(load_cache_context_);
         if (read_context) {
-            const int reuse_len = read_context->resource()->reuseBlocksNum() * seqSizePerBlock();
+            const size_t reuse_blocks_num = read_context->reuseBlockNum();
+            const int    reuse_len        = reuse_blocks_num * seqSizePerBlock();
             RTP_LLM_LOG_INFO("load cache success, reuse_len: %d", reuse_len);
-            stream_->setInitialReuseLength(reuse_len);
-            stream_->setReuseLength(reuse_len);
-            stream_->setLocalReuseLength(reuse_len);
+            reuse_info_->initial_reuse_length = reuse_len;
+            reuse_info_->reuse_length         = reuse_len;
+            reuse_info_->local_reuse_length   = reuse_len;
             stream_->setMtpTokenIndex(reuse_len);
         } else {
             RTP_LLM_LOG_WARNING("load cache success but cast load cache context failed");
@@ -211,7 +202,7 @@ bool StreamCacheResource::asyncStoreCache() {
     }
     auto meta         = std::make_shared<KVCacheConnectorMeta>();
     meta->request_id  = stream_->streamId();
-    meta->deadline_ms = stream_->deadlineUs() / 1000;
+    meta->deadline_ms = stream_->deadlineMs();
 
     KVCacheConnectorControlParams control_params;
     control_params.enable_memory_cache = enableMemoryBlockCache();

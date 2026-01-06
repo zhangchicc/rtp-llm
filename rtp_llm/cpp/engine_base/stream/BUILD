@@ -39,6 +39,16 @@ cc_library(
 )
 
 cc_library(
+    name = "reuse_info",
+    hdrs = ["ReuseInfo.h"],
+    srcs = [],
+    deps = [
+        "//rtp_llm/cpp/utils:core_utils",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
     name = "stream",
     hdrs = glob([
         "*.h",
@@ -50,6 +60,7 @@ cc_library(
         ":generate_types",
         ":generate_config",
         ":complete_token_ids",
+        ":reuse_info",
         "//rtp_llm/cpp/engine_base/system_prompt:system_prompt",
         "//rtp_llm/cpp/models:models",
         "//rtp_llm/cpp/cache:cache",

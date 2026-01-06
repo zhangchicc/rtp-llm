@@ -73,11 +73,21 @@ public:
         return meta_;
     }
 
+    int reuseBlockNum() const {
+        return reuse_block_num_;
+    }
+
+    void setReuseBlockNum(int reuse_block_num) {
+        reuse_block_num_ = reuse_block_num;
+    }
+
 private:
     std::shared_ptr<FusedAsyncContext>    fused_match_context_;
     std::shared_ptr<FusedAsyncContext>    fused_read_context_;
     std::shared_ptr<KVCacheResourceV1>    resource_;
     std::shared_ptr<KVCacheConnectorMeta> meta_;
+
+    int reuse_block_num_ = 0;
 };
 
 }  // namespace rtp_llm

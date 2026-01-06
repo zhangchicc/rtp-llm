@@ -6,6 +6,7 @@
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorScheduler.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorStreamStore.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorWorker.h"
+#include "rtp_llm/cpp/engine_base/stream/ReuseInfo.h"
 #include <grpc++/grpc++.h>
 #include <memory>
 #include <string>
@@ -30,19 +31,19 @@ public:
 
 public:
     // KVCacheConnector interface
-    std::shared_ptr<AsyncMatchContext> asyncMatch(const std::shared_ptr<KVCacheResourceV1>&    resource,
+    std::shared_ptr<AsyncMatchContext> asyncMatch(const KVCacheResourceV1Ptr&                  resource,
                                                   const std::shared_ptr<KVCacheConnectorMeta>& meta) override;
 
-    std::shared_ptr<AsyncContext> asyncRead(const std::shared_ptr<KVCacheResourceV1>&    resource,
+    std::shared_ptr<AsyncContext> asyncRead(const KVCacheResourceV1Ptr&                  resource,
                                             const std::shared_ptr<KVCacheConnectorMeta>& meta,
                                             const std::shared_ptr<AsyncMatchContext>&    match_context,
                                             const std::pair<int, int>&                   block_range) override;
 
-    std::shared_ptr<AsyncContext> asyncWrite(const std::shared_ptr<KVCacheResourceV1>&    resource,
+    std::shared_ptr<AsyncContext> asyncWrite(const KVCacheResourceV1Ptr&                  resource,
                                              const std::shared_ptr<KVCacheConnectorMeta>& meta) override;
 
     std::shared_ptr<AsyncContext> asyncWriteByLayer(int                                          layer_id,
-                                                    const std::shared_ptr<KVCacheResourceV1>&    resource,
+                                                    const KVCacheResourceV1Ptr&                  resource,
                                                     const std::shared_ptr<KVCacheConnectorMeta>& meta) override;
 
 public:
@@ -52,11 +53,12 @@ public:
     bool handleTpBroadcast(const BroadcastTpRequestPB request, BroadcastTpResponsePB& response);
 
     // Prefill side: reserve resource for P2P transfer
-    void addResource(const std::string&                        unique_key,
-                     int64_t                                   request_id,
-                     const std::shared_ptr<ICompleteTokenIds>& complete_token_ids,
-                     const std::shared_ptr<KVCacheResourceV1>& kv_cache_resource,
-                     int64_t                                   deadline_ms);
+    void addResource(const std::string&          unique_key,
+                     int64_t                     request_id,
+                     const ICompleteTokenIdsPtr& complete_token_ids,
+                     const KVCacheResourceV1Ptr& kv_cache_resource,
+                     const ReuseInfoPtr&         reuse_info,
+                     int64_t                     deadline_ms);
 
 private:
     const KVCacheConfig&                 cache_config_;

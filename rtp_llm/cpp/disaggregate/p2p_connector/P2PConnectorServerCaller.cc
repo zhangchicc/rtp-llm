@@ -32,12 +32,13 @@ P2PConnectorServerCaller::P2PConnectorServerCaller(const std::vector<std::string
 }
 
 std::shared_ptr<P2PConnectorServerCaller::Result>
-P2PConnectorServerCaller::load(int64_t                                   request_id,
-                               const std::string&                        prefill_ip,
-                               uint32_t                                  prefill_port,
-                               const std::string&                        unique_key,
-                               int64_t                                   deadline_ms,
-                               const std::shared_ptr<ICompleteTokenIds>& complete_token_ids) {
+P2PConnectorServerCaller::load(int64_t                     request_id,
+                               const std::string&          prefill_ip,
+                               uint32_t                    prefill_port,
+                               const std::string&          unique_key,
+                               int64_t                     deadline_ms,
+                               const ICompleteTokenIdsPtr& complete_token_ids,
+                               const ReuseInfoPtr&         reuse_info) {
     if (!rpc_pool_) {
         RTP_LLM_LOG_WARNING("P2PConnectorServerCaller load failed: rpc_pool is null");
         return nullptr;
@@ -103,6 +104,7 @@ P2PConnectorServerCaller::load(int64_t                                   request
                                          + std::chrono::milliseconds(result->timeout_ms_));
 
     result->complete_token_ids_ = complete_token_ids;
+    result->reuse_info_         = reuse_info;
 
     result->reader_ = result->stub->PrepareAsyncStartLoad(
         result->client_context.get(), result->request, result->completion_queue_.get());
@@ -123,6 +125,8 @@ P2PConnectorServerCaller::load(int64_t                                   request
 }
 
 void P2PConnectorServerCaller::Result::checkDone() {
+    // RTP_LLM_LOG_INFO("P2PConnectorServerCaller::Result::waitDone: checkDone, completion_queue_: %p, success_: %d,
+    // done_: %d", completion_queue_.get(), success_, done_);
     if (!completion_queue_) {
         RTP_LLM_LOG_WARNING("P2PConnectorServerCaller::Result::waitDone: completion_queue is null");
         success_ = false;
@@ -170,14 +174,21 @@ void P2PConnectorServerCaller::Result::checkDone() {
     success_ = true;
 
     // update complete token ids
-    if (!complete_token_ids_) {
-        RTP_LLM_LOG_WARNING("P2PConnectorServerCaller::Result::waitDone: complete token ids is null");
-        return;
+    if (complete_token_ids_) {
+        int32_t token_id = static_cast<int32_t>(response.first_generate_token_id());
+        complete_token_ids_->appendTokenId(0, token_id);
     }
 
-    int32_t token_id = static_cast<int32_t>(response.first_generate_token_id());
-    complete_token_ids_->appendTokenId(0, token_id);
-    RTP_LLM_LOG_DEBUG("P2PConnectorServerCaller::Result::waitDone: success, server_addr: %s", server_addr.c_str());
+    // update reuse info with prefill reuse info
+    // RTP_LLM_LOG_INFO("P2PConnectorServerCaller::Result response is : %s, reuse_info_: %p",
+    // response.DebugString().c_str(), reuse_info_.get());
+    if (reuse_info_) {
+        reuse_info_->prefill_total_reuse_len  = response.total_reuse_len();
+        reuse_info_->prefill_local_reuse_len  = response.local_reuse_len();
+        reuse_info_->prefill_remote_reuse_len = response.remote_reuse_len();
+    }
+
+    // RTP_LLM_LOG_DEBUG("P2PConnectorServerCaller::Result::waitDone: success, server_addr: %s", server_addr.c_str());
     return;
 }
 

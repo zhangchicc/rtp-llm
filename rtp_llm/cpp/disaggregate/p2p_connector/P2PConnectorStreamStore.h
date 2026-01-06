@@ -11,16 +11,18 @@
 #include "rtp_llm/cpp/cache/connector/KVCacheConnector.h"
 #include "rtp_llm/cpp/cache/BatchKVCacheResource.h"
 #include "rtp_llm/cpp/disaggregate/p2p_connector/P2PConnectorMetrics.h"
+#include "rtp_llm/cpp/engine_base/stream/ReuseInfo.h"
 
 namespace rtp_llm {
 
 /// @brief P2P Connector 资源条目，存储 prefill 完成后的关键数据
 struct P2PConnectorResourceEntry {
-    int64_t                            request_id;          // 请求 ID
-    std::shared_ptr<ICompleteTokenIds> complete_token_ids;  // 完整的 token ids
-    std::shared_ptr<KVCacheResourceV1> kv_cache_resource;   // KV cache 资源引用，用于保持引用计数
-    int64_t                            deadline_ms;         // 过期时间
-    int64_t                            add_time_us;         // 添加时间
+    int64_t              request_id;          // 请求 ID
+    ICompleteTokenIdsPtr complete_token_ids;  // 完整的 token ids
+    KVCacheResourceV1Ptr kv_cache_resource;   // KV cache 资源引用，用于保持引用计数
+    ReuseInfoPtr         reuse_info;          // 复用信息
+    int64_t              deadline_ms;         // 过期时间
+    int64_t              add_time_us;         // 添加时间
 };
 
 /// @brief P2P Connector Resource Store，存储 prefill 完成后的资源
@@ -37,11 +39,12 @@ public:
 
 public:
     /// @brief 添加资源条目
-    void addResource(const std::string&                        unique_key,
-                     int64_t                                   request_id,
-                     const std::shared_ptr<ICompleteTokenIds>& complete_token_ids,
-                     const std::shared_ptr<KVCacheResourceV1>& kv_cache_resource,
-                     int64_t                                   deadline_ms);
+    void addResource(const std::string&          unique_key,
+                     int64_t                     request_id,
+                     const ICompleteTokenIdsPtr& complete_token_ids,
+                     const KVCacheResourceV1Ptr& kv_cache_resource,
+                     const ReuseInfoPtr&         reuse_info,
+                     int64_t                     deadline_ms);
 
     /// @brief 获取并移除资源条目
     std::shared_ptr<P2PConnectorResourceEntry> stealResource(const std::string& unique_key);

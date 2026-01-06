@@ -64,7 +64,7 @@ bool P2PConnector::init() {
     return true;
 }
 
-std::shared_ptr<AsyncMatchContext> P2PConnector::asyncMatch(const std::shared_ptr<KVCacheResourceV1>&    resource,
+std::shared_ptr<AsyncMatchContext> P2PConnector::asyncMatch(const KVCacheResourceV1Ptr&                  resource,
                                                             const std::shared_ptr<KVCacheConnectorMeta>& meta) {
     if (meta->unique_key.empty() || meta->prefill_ip.empty() || meta->prefill_port == 0) {
         RTP_LLM_LOG_WARNING("P2PConnector asyncMatch failed, unique_key: %s, prefill_ip: %s, prefill_port: %d",
@@ -78,7 +78,7 @@ std::shared_ptr<AsyncMatchContext> P2PConnector::asyncMatch(const std::shared_pt
     return std::make_shared<P2PConnectorAsyncMatchContext>(resource);
 }
 
-std::shared_ptr<AsyncContext> P2PConnector::asyncRead(const std::shared_ptr<KVCacheResourceV1>&    resource,
+std::shared_ptr<AsyncContext> P2PConnector::asyncRead(const KVCacheResourceV1Ptr&                  resource,
                                                       const std::shared_ptr<KVCacheConnectorMeta>& meta,
                                                       const std::shared_ptr<AsyncMatchContext>&    match_context,
                                                       const std::pair<int, int>&                   block_range) {
@@ -95,17 +95,18 @@ std::shared_ptr<AsyncContext> P2PConnector::asyncRead(const std::shared_ptr<KVCa
                                  meta->prefill_port,
                                  meta->deadline_ms,
                                  meta->complete_token_ids,
+                                 meta->reuse_info,
                                  block_range);
 }
 
-std::shared_ptr<AsyncContext> P2PConnector::asyncWrite(const std::shared_ptr<KVCacheResourceV1>&    resource,
+std::shared_ptr<AsyncContext> P2PConnector::asyncWrite(const KVCacheResourceV1Ptr&                  resource,
                                                        const std::shared_ptr<KVCacheConnectorMeta>& meta) {
     RTP_LLM_LOG_ERROR("P2PConnector::asyncWrite not supported, use asyncWriteByLayer instead");
     return nullptr;
 }
 
 std::shared_ptr<AsyncContext> P2PConnector::asyncWriteByLayer(int                                          layer_id,
-                                                              const std::shared_ptr<KVCacheResourceV1>&    resource,
+                                                              const KVCacheResourceV1Ptr&                  resource,
                                                               const std::shared_ptr<KVCacheConnectorMeta>& meta) {
     if (worker_ == nullptr) {
         RTP_LLM_LOG_WARNING("P2PConnector write by layer failed, worker not init");
@@ -182,19 +183,26 @@ grpc::Status P2PConnector::handleRead(const P2PConnectorStartLoadRequestPB& requ
 
     response.set_success(true);
     response.set_first_generate_token_id(first_token);
+    // 从 reuse_info 获取 prefill 的复用信息
+    if (resource_entry->reuse_info) {
+        response.set_total_reuse_len(resource_entry->reuse_info->reuse_length);
+        response.set_local_reuse_len(resource_entry->reuse_info->local_reuse_length);
+        response.set_remote_reuse_len(resource_entry->reuse_info->remote_reuse_length);
+    }
     return grpc::Status::OK;
 }
 
-void P2PConnector::addResource(const std::string&                        unique_key,
-                               int64_t                                   request_id,
-                               const std::shared_ptr<ICompleteTokenIds>& complete_token_ids,
-                               const std::shared_ptr<KVCacheResourceV1>& kv_cache_resource,
-                               int64_t                                   deadline_ms) {
+void P2PConnector::addResource(const std::string&          unique_key,
+                               int64_t                     request_id,
+                               const ICompleteTokenIdsPtr& complete_token_ids,
+                               const KVCacheResourceV1Ptr& kv_cache_resource,
+                               const ReuseInfoPtr&         reuse_info,
+                               int64_t                     deadline_ms) {
     if (stream_store_ == nullptr) {
         RTP_LLM_LOG_WARNING("P2PConnector addResource failed, stream_store not init");
         return;
     }
-    stream_store_->addResource(unique_key, request_id, complete_token_ids, kv_cache_resource, deadline_ms);
+    stream_store_->addResource(unique_key, request_id, complete_token_ids, kv_cache_resource, reuse_info, deadline_ms);
 }
 
 bool P2PConnector::handleTpBroadcast(const BroadcastTpRequestPB request, BroadcastTpResponsePB& response) {

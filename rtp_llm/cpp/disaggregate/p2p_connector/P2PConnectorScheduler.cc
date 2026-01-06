@@ -51,14 +51,15 @@ bool P2PConnectorScheduler::init() {
 }
 
 std::shared_ptr<P2PConnectorAsyncReadContext>
-P2PConnectorScheduler::asyncRead(const std::shared_ptr<KVCacheResourceV1>& resource,
-                                 int64_t                                   request_id,
-                                 const std::string&                        unique_key,
-                                 const std::string&                        prefill_ip,
-                                 uint32_t                                  prefill_port,
-                                 int64_t                                   deadline_ms,
-                                 const std::shared_ptr<ICompleteTokenIds>& complete_token_ids,
-                                 const std::pair<int, int>&                block_range) {
+P2PConnectorScheduler::asyncRead(const KVCacheResourceV1Ptr& resource,
+                                 int64_t                     request_id,
+                                 const std::string&          unique_key,
+                                 const std::string&          prefill_ip,
+                                 uint32_t                    prefill_port,
+                                 int64_t                     deadline_ms,
+                                 const ICompleteTokenIdsPtr& complete_token_ids,
+                                 const ReuseInfoPtr&         reuse_info,
+                                 const std::pair<int, int>&  block_range) {
     RTP_LLM_LOG_DEBUG(
         "P2PConnectorScheduler asyncRead start, request_id: %ld, unique_key: %s, prefill_ip: %s, prefill_port: %u",
         request_id,
@@ -81,8 +82,8 @@ P2PConnectorScheduler::asyncRead(const std::shared_ptr<KVCacheResourceV1>& resou
     }
 
     // call prefill server to trigger write (higher failure probability, execute first)
-    auto server_call_result =
-        server_caller_->load(request_id, prefill_ip, prefill_port, unique_key, deadline_ms, complete_token_ids);
+    auto server_call_result = server_caller_->load(
+        request_id, prefill_ip, prefill_port, unique_key, deadline_ms, complete_token_ids, reuse_info);
     if (!server_call_result) {
         RTP_LLM_LOG_WARNING("P2PConnectorScheduler asyncRead: server_caller load failed");
         collector->success = false;
@@ -108,7 +109,7 @@ P2PConnectorScheduler::asyncRead(const std::shared_ptr<KVCacheResourceV1>& resou
     return async_context;
 }
 
-bool P2PConnectorScheduler::handleRead(const std::shared_ptr<KVCacheResourceV1>&            resource,
+bool P2PConnectorScheduler::handleRead(const KVCacheResourceV1Ptr&                          resource,
                                        const std::string&                                   unique_key,
                                        int64_t                                              request_id,
                                        const std::vector<std::pair<std::string, uint32_t>>& decode_transfer_servers,

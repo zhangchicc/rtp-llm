@@ -4,6 +4,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "rtp_llm/cpp/engine_base/stream/ResourceContext.h"
+#include "rtp_llm/cpp/engine_base/stream/ReuseInfo.h"
 #include "rtp_llm/cpp/cache/BatchKVCacheResource.h"
 
 namespace rtp_llm {
@@ -15,11 +16,13 @@ class StreamCacheResource: public std::enable_shared_from_this<StreamCacheResour
 public:
     StreamCacheResource(GenerateStream*        stream,
                         const ResourceContext& resource_context,
+                        const ReuseInfoPtr&    reuse_info,
                         bool                   need_release_resource = true,
                         const std::string&     adapter_name          = ""):
         stream_(stream),
         batch_kv_cache_resource_(std::make_shared<BatchKVCacheResource>()),
         resource_context_(resource_context),
+        reuse_info_(reuse_info),
         need_release_resource_(need_release_resource) {}
 
     ~StreamCacheResource() {
@@ -93,9 +96,19 @@ public:
         need_release_resource_ = need_release_resource;
     }
 
-    bool reuseCache() const;
-    bool enable3FS() const;
-    bool enableMemoryBlockCache() const;
+    bool reuseCache() const {
+        return reuse_info_->reuse_cache;
+    }
+    bool enable3FS() const {
+        return reuse_info_->enable_3fs;
+    }
+    bool enableMemoryBlockCache() const {
+        return reuse_info_->enable_memory_block_cache;
+    }
+
+    ReuseInfoPtr reuseInfo() const {
+        return reuse_info_;
+    }
 
     bool asyncLoadCache();
     bool loadCacheDone();
@@ -116,6 +129,7 @@ private:
     GenerateStream*          stream_;
     BatchKVCacheResourcePtr  batch_kv_cache_resource_;
     ResourceContext          resource_context_;
+    ReuseInfoPtr             reuse_info_;
     std::vector<BlockIdPair> block_update_mapping_;
 
     bool need_release_resource_ = true;

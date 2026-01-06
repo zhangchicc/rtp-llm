@@ -151,11 +151,20 @@ void DeviceBase::setCacheStore(std::shared_ptr<rtp_llm::CacheStore> cache_store)
 }
 
 void DeviceBase::writeCacheStore(const WriteCacheParams& params) {
+    RTP_LLM_LOG_INFO("DeviceBase writeCacheStore, cache_store_: %p, connector_coordinator_: %p",
+                     cache_store_.get(),
+                     connector_coordinator_.get());
     if (params.cache_store_inputs.has_value() && params.kv_cache.has_value()) {
         if (cache_store_) {
+            RTP_LLM_LOG_INFO(
+                "DeviceBase writeCacheStore, write cache store, cache_store_: %p, connector_coordinator_: %p",
+                cache_store_.get(),
+                connector_coordinator_.get());
             writeCacheStore(params.cache_store_inputs.value(), params.kv_cache.value(), params.mla_kvcache);
         }
         if (connector_coordinator_) {
+            RTP_LLM_LOG_INFO("DeviceBase writeCacheStore, write cache to connector, connector_coordinator_: %p",
+                             connector_coordinator_.get());
             writeCacheToConnector(params);
         }
     }
@@ -185,8 +194,6 @@ void DeviceBase::writeCacheStore(const CacheStoreInputs& cache_store_inputs,
     RTP_LLM_CHECK_WITH_INFO(param.context_batch_size == param.request_pd_separation->size(), "size not same");
     RTP_LLM_CHECK_WITH_INFO(param.context_batch_size == param.request_id->size(),
                             "context batch size and request id size is not same");
-
-    RTP_LLM_LOG_DEBUG("write cache store, context_batch_size is %ld", param.context_batch_size);
 
     for (size_t batch_id = 0; batch_id < param.context_batch_size; batch_id++) {
         if (*(param.request_pd_separation->dataWithOffset<bool>(batch_id)) == false) {
@@ -234,9 +241,11 @@ void DeviceBase::writeCacheStore(const CacheStoreInputs& cache_store_inputs,
 
 void DeviceBase::setConnectorCoordinator(std::shared_ptr<IKVCacheConnectorCoordinator> connector_coordinator) {
     connector_coordinator_ = connector_coordinator;
+    RTP_LLM_LOG_INFO("DeviceBase setConnectorCoordinator, connector_coordinator_: %p", connector_coordinator_.get());
 }
 
 void DeviceBase::writeCacheToConnector(const WriteCacheParams& params) {
+    // RTP_LLM_LOG_INFO("DeviceBase writeCacheToConnector, connector_coordinator_: %p", connector_coordinator_.get());
     auto& param = params.cache_store_inputs.value();
     if (param.warmup) {
         RTP_LLM_LOG_DEBUG("is warmup, so ignore writeCacheStore");

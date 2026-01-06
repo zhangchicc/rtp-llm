@@ -14,7 +14,7 @@ namespace rtp_llm {
 // p2p connector always match all when pd sep
 class P2PConnectorAsyncMatchContext: public AsyncMatchContext {
 public:
-    P2PConnectorAsyncMatchContext(const std::shared_ptr<KVCacheResourceV1>& resource): resource_(resource) {}
+    P2PConnectorAsyncMatchContext(const KVCacheResourceV1Ptr& resource): resource_(resource) {}
     virtual ~P2PConnectorAsyncMatchContext() {}
 
 public:
@@ -24,12 +24,12 @@ public:
     bool          success() const override;
 
 private:
-    std::shared_ptr<KVCacheResourceV1> resource_;
+    KVCacheResourceV1Ptr resource_;
 };
 
 class P2PConnectorAsyncReadContext: public AsyncContext {
 public:
-    P2PConnectorAsyncReadContext(const std::shared_ptr<KVCacheResourceV1>&                           resource,
+    P2PConnectorAsyncReadContext(const KVCacheResourceV1Ptr&                                         resource,
                                  const std::shared_ptr<TPBroadcastClient::Result>&                   tp_sync_result,
                                  const std::shared_ptr<P2PConnectorServerCaller::Result>&            server_call_result,
                                  const std::shared_ptr<P2PConnectorClientSchedulerMetricsCollector>& collector):
@@ -45,7 +45,7 @@ public:
     void checkDone();
 
 private:
-    std::shared_ptr<KVCacheResourceV1>                           resource_;
+    KVCacheResourceV1Ptr                                         resource_;
     std::shared_ptr<TPBroadcastClient::Result>                   tp_sync_result_;
     std::shared_ptr<P2PConnectorServerCaller::Result>            server_call_result_;
     std::shared_ptr<P2PConnectorClientSchedulerMetricsCollector> collector_;
@@ -53,7 +53,7 @@ private:
 
 class P2PConnectorAsyncWriteByLayerContext: public AsyncContext {
 public:
-    P2PConnectorAsyncWriteByLayerContext(const std::shared_ptr<KVCacheResourceV1>& resource): resource_(resource) {}
+    P2PConnectorAsyncWriteByLayerContext(const KVCacheResourceV1Ptr& resource): resource_(resource) {}
     virtual ~P2PConnectorAsyncWriteByLayerContext() {}
 
 public:
@@ -61,7 +61,7 @@ public:
     bool success() const override;
 
 private:
-    std::shared_ptr<KVCacheResourceV1> resource_;
+    KVCacheResourceV1Ptr resource_;
 };
 
 class P2PConnectorAsyncReadContextChecker {

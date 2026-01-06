@@ -11,6 +11,7 @@
 #include "rtp_llm/cpp/models/logits_processor/MultiSeqLogitsProcessor.h"
 #include "rtp_llm/cpp/engine_base/stream/StreamCacheResource.h"
 #include "rtp_llm/cpp/engine_base/stream/CompleteTokenIds.h"
+#include "rtp_llm/cpp/engine_base/stream/ReuseInfo.h"
 #include "rtp_llm/cpp/engine_base/system_prompt/SystemPrompt.h"
 #include "rtp_llm/cpp/models/position_ids/PositionIdsGenerator.h"
 #include <iterator>
@@ -197,7 +198,18 @@ public:
     int    localReuseLength() const;
     int    remoteReuseLength() const;
     void   setInitialReuseLength(int initial_reuse_length);
-    void   incLastOutputPos();
+
+    // 获取 ReuseInfo
+    ReuseInfo& reuseInfo() {
+        return *reuse_info_;
+    }
+    const ReuseInfo& reuseInfo() const {
+        return *reuse_info_;
+    }
+    ReuseInfoPtr reuseInfoPtr() const {
+        return reuse_info_;
+    }
+    void incLastOutputPos();
 
     bool                      isContextStream() const;
     const rtp_llm::BufferPtr& cumLogProbs() const;
@@ -265,7 +277,10 @@ public:
     void        reportMetric();
     std::string debugString() const;
 
-    void resetBeginTime(int64_t begin_time_us);
+    void    resetBeginTime(int64_t begin_time_us);
+    int64_t beginTimeUs() const {
+        return begin_time_us_;
+    }
 
     // for test
     void               setIsContextStream(bool is_context_stream);
@@ -492,19 +507,20 @@ public:
     }
 
     bool reuseCache() const {
-        return generate_input_->generate_config->reuse_cache;
+        return reuse_info_->reuse_cache;
     }
 
     bool enable3FS() const {
-        return generate_input_->generate_config->enable_3fs;
+        return reuse_info_->enable_3fs;
     }
 
     bool enableMemoryBlockCache() const {
-        return generate_input_->generate_config->enable_memory_block_cache;
+        return reuse_info_->enable_memory_block_cache;
     }
 
-    int64_t deadlineUs() const {
-        return generate_input_->generate_config->timeout_ms * 1000 + begin_time_us_;
+    int64_t deadlineMs() const {
+        auto deadline_ms = generate_input_->generate_config->timeout_ms + begin_time_us_ / 1000;
+        return deadline_ms;
     }
 
     std::pair<std::string, uint32_t> prefillAddr() const;
@@ -531,6 +547,7 @@ public:
     bool     queryPdSep() const;
 
 protected:
+    ReuseInfoPtr                         reuse_info_;
     rtp_llm::DeviceBase*                 device_;
     std::shared_ptr<GenerateInput>       generate_input_;
     std::shared_ptr<GenerateStatus>      generate_status_;
@@ -544,14 +561,9 @@ protected:
     int64_t                              wait_time_us_  = 0;
     std::shared_ptr<StreamCacheResource> stream_cache_resource_;
     std::shared_ptr<bool>                is_context_stream_;
-    size_t                               iter_count_           = 0;
-    size_t                               sp_iter_count_        = 0;
-    size_t                               last_output_pos_      = 0;
-    int                                  initial_reuse_length_ = 0;
-    int                                  reuse_length_         = 0;
-    int                                  local_reuse_length_   = 0;
-    int                                  remote_reuse_length_  = 0;
-    int                                  reuse_mm_length_      = 0;
+    size_t                               iter_count_      = 0;
+    size_t                               sp_iter_count_   = 0;
+    size_t                               last_output_pos_ = 0;
     // TOOD(xinfei.sxf) fix state
     bool done_                  = false;
     bool released_              = false;

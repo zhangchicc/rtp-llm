@@ -74,7 +74,7 @@ bool P2PConnectorAsyncReadContextChecker::init(const kmonitor::MetricsReporterPt
     metrics_reporter_ = metrics_reporter;
     check_done_thread_ =
         autil::LoopThread::createLoopThread(std::bind(&P2PConnectorAsyncReadContextChecker::checkOnce, this),
-                                            5 * 1000,  // 10ms
+                                            5 * 1000,  // 5ms
                                             "P2PConnectorAsyncReadContextCheckerThread");
     if (!check_done_thread_) {
         RTP_LLM_LOG_ERROR("P2PConnectorAsyncReadContextChecker init failed: check_done_thread is null");
@@ -110,11 +110,16 @@ void P2PConnectorAsyncReadContextChecker::checkOnce() {
     std::lock_guard<std::mutex> lock(async_contexts_mutex_);
     for (auto& async_context : async_contexts_) {
         async_context->checkDone();
+        // RTP_LLM_LOG_INFO("P2PConnectorAsyncReadContextChecker::checkOnce: async_context: %p, done_: %d, success_:
+        // %d", async_context.get(), async_context->done(), async_context->success());
     }
     async_contexts_.erase(
         std::remove_if(async_contexts_.begin(),
                        async_contexts_.end(),
                        [](const std::shared_ptr<P2PConnectorAsyncReadContext>& async_context) -> bool {
+                           // RTP_LLM_LOG_INFO("P2PConnectorAsyncReadContextChecker::checkOnce: async_context: %p,
+                           // done_: %d, success_: %d", async_context.get(), async_context->done(),
+                           // async_context->success());
                            return async_context->done();
                        }),
         async_contexts_.end());

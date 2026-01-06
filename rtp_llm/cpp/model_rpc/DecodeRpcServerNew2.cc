@@ -81,7 +81,7 @@ grpc::Status DecodeRpcServerNew2::GenerateStreamCall(grpc::ServerContext*       
     if (need_prefill) {
         auto [ip, port] = stream->prefillAddr();
         prefill_context =
-            prefill_server_caller_->callPrefill(request, ip, port, stream->uniqueKey(), stream->deadlineUs());
+            prefill_server_caller_->callPrefill(request, ip, port, stream->uniqueKey(), stream->deadlineMs() * 1000);
     }
 
     generate_context.error_status =
@@ -93,6 +93,31 @@ grpc::Status DecodeRpcServerNew2::GenerateStreamCall(grpc::ServerContext*       
         prefill_context->waitPrefillDone();
     }
     return generate_context.error_status;
+}
+
+void DecodeRpcServerNew2::updateAuxInfo(GenerateOutputsPB& outputs_pb, std::shared_ptr<GenerateStream>& stream) {
+    auto first_token_rt_us = stream->getTimeInfo().first_token_rt_us;
+    auto cost_time_us      = autil::TimeUtility::currentTimeInMicroSeconds() - stream->beginTimeUs();
+
+    for (size_t i = 0; i < outputs_pb.flatten_output().aux_info_size(); i++) {
+        auto aux_info = outputs_pb.mutable_flatten_output()->mutable_aux_info(i);
+        aux_info->set_first_token_cost_time_us(first_token_rt_us);
+        aux_info->set_cost_time_us(cost_time_us);
+        aux_info->set_pd_sep(true);
+
+        // use prefill as
+        aux_info->set_total_reuse_len(stream->reuseInfo().prefill_total_reuse_len);
+        aux_info->set_local_reuse_len(stream->reuseInfo().prefill_local_reuse_len);
+        aux_info->set_remote_reuse_len(stream->reuseInfo().prefill_remote_reuse_len);
+
+        aux_info->set_prefill_total_reuse_len(stream->reuseInfo().prefill_total_reuse_len);
+        aux_info->set_prefill_local_reuse_len(stream->reuseInfo().prefill_local_reuse_len);
+        aux_info->set_prefill_remote_reuse_len(stream->reuseInfo().prefill_remote_reuse_len);
+
+        aux_info->set_decode_total_reuse_len(stream->reuseInfo().reuse_length);
+        aux_info->set_decode_local_reuse_len(stream->reuseInfo().local_reuse_length);
+        aux_info->set_decode_remote_reuse_len(stream->reuseInfo().remote_reuse_length);
+    }
 }
 
 }  // namespace rtp_llm

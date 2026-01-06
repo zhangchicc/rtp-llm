@@ -30,16 +30,18 @@ bool P2PConnectorStreamStore::init() {
     return true;
 }
 
-void P2PConnectorStreamStore::addResource(const std::string&                        unique_key,
-                                          int64_t                                   request_id,
-                                          const std::shared_ptr<ICompleteTokenIds>& complete_token_ids,
-                                          const std::shared_ptr<KVCacheResourceV1>& kv_cache_resource,
-                                          int64_t                                   deadline_ms) {
+void P2PConnectorStreamStore::addResource(const std::string&          unique_key,
+                                          int64_t                     request_id,
+                                          const ICompleteTokenIdsPtr& complete_token_ids,
+                                          const KVCacheResourceV1Ptr& kv_cache_resource,
+                                          const ReuseInfoPtr&         reuse_info,
+                                          int64_t                     deadline_ms) {
     std::lock_guard<std::mutex> lock(resource_map_mutex_);
     auto                        entry = std::make_shared<P2PConnectorResourceEntry>();
     entry->request_id                 = request_id;
     entry->complete_token_ids         = complete_token_ids;
     entry->kv_cache_resource          = kv_cache_resource;
+    entry->reuse_info                 = reuse_info;
     entry->deadline_ms                = deadline_ms;
     entry->add_time_us                = currentTimeUs();
     resource_map_[unique_key]         = entry;

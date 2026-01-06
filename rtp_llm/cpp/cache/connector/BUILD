@@ -33,6 +33,7 @@ cc_library(
     copts = copts(),
     deps = [
         "//rtp_llm/cpp/cache:batch_kv_cache_resource",
+        "//rtp_llm/cpp/engine_base/stream:reuse_info",
     ],
     visibility = ["//visibility:public"],
 )

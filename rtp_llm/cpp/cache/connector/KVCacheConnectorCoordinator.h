@@ -52,12 +52,6 @@ public:
     // for connector rpc
     bool broadcastTp(const BroadcastTpRequestPB& request, BroadcastTpResponsePB& response);
     bool handleRead(const P2PConnectorStartLoadRequestPB& request, P2PConnectorStartLoadResponsePB& response);
-    // TODO: try better way to cache stream to connector
-    void cacheStream(const std::string&                        unique_key,
-                     int64_t                                   request_id,
-                     const std::shared_ptr<ICompleteTokenIds>& complete_token_ids,
-                     const std::shared_ptr<KVCacheResourceV1>& kv_cache_resource,
-                     int64_t                                   deadline_ms);
 
 private:
     bool initMemoryConnector();

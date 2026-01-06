@@ -104,10 +104,10 @@ bool P2PConnectorWorker::init(int64_t store_wait_timeout_ms) {
 
 // ================== Prefill 端功能实现 ==================
 
-bool P2PConnectorWorker::writeByLayer(int                                       layer_id,
-                                      const std::shared_ptr<KVCacheResourceV1>& resource,
-                                      int64_t                                   request_id,
-                                      DeviceEventPtr                            event) {
+bool P2PConnectorWorker::writeByLayer(int                         layer_id,
+                                      const KVCacheResourceV1Ptr& resource,
+                                      int64_t                     request_id,
+                                      DeviceEventPtr              event) {
     RTP_LLM_LOG_DEBUG("P2PConnectorWorker writeByLayer start, request_id: %ld, layer_id: %d", request_id, layer_id);
     auto collector = std::make_shared<P2PConnectorServerWorkerStoreMetricsCollector>();
 
