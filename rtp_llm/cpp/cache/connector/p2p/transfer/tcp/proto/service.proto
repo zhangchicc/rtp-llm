@@ -1,0 +1,48 @@
+syntax = "proto2";
+
+import "arpc/proto/rpc_extensions.proto";
+option cc_generic_services = true;
+
+package transfer.tcp;
+
+enum ErrorCodePB {
+    ERROR_NONE = 1;
+    INVALID_PARAMS = 2;
+    NO_RECV_TASK = 3;
+    BUFFER_MISMATCH = 4;
+    FAILED = 5;
+    CANCELLED = 6;
+    TIMEOUT = 7;
+}
+
+message BlockInfoContentPB {
+    optional uint32 len = 1;
+    optional bytes content = 2;
+}
+
+message CacheKeyBlockInfoContentPB {
+    optional int64 key = 1;
+    repeated BlockInfoContentPB blocks = 2;
+}
+
+message TransferRequestPB {
+    optional string unique_key = 1;
+    repeated CacheKeyBlockInfoContentPB blocks = 2;
+    optional int64 deadline_ms = 3;
+    // For logging/debugging only. Endpoint is still determined by RPC channel.
+    optional string ip = 4;
+    optional uint32 port = 5;
+}
+
+message TransferResponsePB {
+    optional ErrorCodePB error_code = 1;
+    optional string error_message = 2;
+}
+
+service TcpTransferService {
+    option (arpc.global_service_id) = 10009;
+
+    rpc transfer(TransferRequestPB) returns (TransferResponsePB) {
+        option (arpc.local_method_id) = 10010;
+    }
+}
