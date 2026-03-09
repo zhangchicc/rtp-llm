@@ -6,10 +6,7 @@ cc_library(
     name = "rdma_header",
     hdrs = ["RdmaInterface.h"],
     srcs = [],
-    deps = [
-        "//rtp_llm/cpp/core:buffer",
-        "//rtp_llm/cpp/cache/connector/p2p/transfer/proto:service_cc_proto",
-    ],
+    deps = [],
     visibility = ['//visibility:public']
 )
 

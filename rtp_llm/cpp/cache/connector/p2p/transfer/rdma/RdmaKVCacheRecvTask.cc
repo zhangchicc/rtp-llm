@@ -1,11 +1,11 @@
-#include "rtp_llm/cpp/cache/connector/p2p/transfer/tcp/TcpKVCacheRecvTask.h"
+#include "rtp_llm/cpp/cache/connector/p2p/transfer/rdma/RdmaKVCacheRecvTask.h"
 
-namespace rtp_llm::transfer::tcp {
+namespace rtp_llm::transfer::rdma {
 
-TcpKVCacheRecvTask::TcpKVCacheRecvTask(std::string                  unique_key,
-                                       KeyBlockInfosPtr             expected_block_info,
-                                       int64_t                      deadline_ms,
-                                       kmonitor::MetricsReporterPtr metrics_reporter):
+RdmaKVCacheRecvTask::RdmaKVCacheRecvTask(std::string                  unique_key,
+                                         KeyBlockInfosPtr             expected_block_info,
+                                         int64_t                      deadline_ms,
+                                         kmonitor::MetricsReporterPtr metrics_reporter):
     KVCacheRecvTaskBase(std::move(unique_key), deadline_ms, std::move(metrics_reporter)),
     expected_block_info_(std::move(expected_block_info)) {
     if (!expected_block_info_) {
@@ -24,4 +24,4 @@ TcpKVCacheRecvTask::TcpKVCacheRecvTask(std::string                  unique_key,
     initCollectorMetrics(block_count, total_block_size);
 }
 
-}  // namespace rtp_llm::transfer::tcp
+}  // namespace rtp_llm::transfer::rdma

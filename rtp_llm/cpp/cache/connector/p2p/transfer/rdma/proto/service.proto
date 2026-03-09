@@ -1,0 +1,58 @@
+syntax = "proto2";
+
+import "arpc/proto/rpc_extensions.proto";
+option cc_generic_services = true;
+
+package transfer.rdma;
+
+enum RdmaErrorCodePB {
+    ERROR_NONE     = 1;
+    INVALID_PARAMS = 2;
+    NO_RECV_TASK   = 3;
+    BUFFER_MISMATCH = 4;
+    RDMA_FAILED    = 5;
+    CANCELLED      = 6;
+    TIMEOUT        = 7;
+}
+
+// Per-NIC rkey (NIC id -> remote key mapping).
+message RdmaNicRKeyPB {
+    optional uint32 nic_id = 1;
+    optional uint32 rkey   = 2;
+}
+
+// RDMA descriptor for a single block on the sender side.
+message RdmaBlockInfoPB {
+    optional uint64 addr = 1;  // Sender-side virtual address (cast from pointer).
+    optional uint32 len  = 2;  // Block size in bytes.
+    repeated RdmaNicRKeyPB nic_rkeys = 3;
+}
+
+// One cache key with its associated blocks.
+message RdmaCacheKeyBlocksPB {
+    optional int64 key = 1;
+    repeated RdmaBlockInfoPB blocks = 2;
+}
+
+// Sent by the sender to the receiver's RPC service.
+// Carries RDMA address info so the receiver can initiate ReadBatch.
+message RdmaTransferRequestPB {
+    optional string  unique_key  = 1;
+    repeated RdmaCacheKeyBlocksPB blocks = 2;
+    optional string  rdma_ip     = 3;   // Sender RDMA server IP.
+    optional uint32  rdma_port   = 4;   // Sender RDMA server port.
+    optional int64   deadline_ms = 5;
+}
+
+message RdmaTransferResponsePB {
+    optional RdmaErrorCodePB error_code    = 1;
+    optional string          error_message = 2;
+}
+
+service RdmaSignalService {
+    option (arpc.global_service_id) = 10020;
+
+    rpc transfer(RdmaTransferRequestPB) returns (RdmaTransferResponsePB) {
+        option (arpc.local_method_id) = 10021;
+    }
+}
