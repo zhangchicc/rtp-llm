@@ -33,6 +33,7 @@ struct PgMapState {
 };
 
 PgMapState& globalPgState();  // defined in DistributedComm.cc
+PgMapState& threadPgState();  // defined in DistributedComm.cc
 
 }  // namespace detail
 
@@ -41,9 +42,11 @@ PgMapState& globalPgState();  // defined in DistributedComm.cc
 // so C++ communication ops can use them without custom NCCL infrastructure.
 
 void registerProcessGroup(ParallelMode mode, c10::intrusive_ptr<c10d::ProcessGroup> pg, int device_id = 0);
+void registerThreadProcessGroup(ParallelMode mode, c10::intrusive_ptr<c10d::ProcessGroup> pg, int device_id = 0);
 c10::intrusive_ptr<c10d::ProcessGroup> getProcessGroup(ParallelMode mode);
 bool                                   hasProcessGroup(ParallelMode mode);
 void                                   clearProcessGroups();
+void                                   clearThreadProcessGroups();
 
 // High-level communication ops using c10d ProcessGroup.
 // These replace the former NCCL-based implementations in CudaOps.cc.

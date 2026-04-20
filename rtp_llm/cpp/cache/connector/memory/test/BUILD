@@ -63,3 +63,23 @@ cc_test(
     env = {},
     exec_properties = {'gpu':'H20'},
 )
+
+
+cc_test(
+    name = "concurrent_broadcast_and_copy_test",
+    srcs = [
+        "ConcurrentBroadcastAndCopyTest.cc",
+    ],
+    data = [],
+    copts = test_copts,
+    deps = test_deps + [
+        "//rtp_llm/cpp/cache/connector/memory:memory_connector",
+        "//rtp_llm/cpp/cache:cache",
+        "//rtp_llm/cpp/core:distributed_comm_hdr",
+        "//rtp_llm/cpp/testing:distributed_test",
+        "//rtp_llm/cpp/models:models",
+    ],
+    env = {},
+    exec_properties = {'gpu':'H20'},
+    tags = ["manual"],
+)

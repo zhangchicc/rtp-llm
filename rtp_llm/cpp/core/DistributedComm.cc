@@ -27,6 +27,11 @@ PgMapState& globalPgState() {
     static PgMapState instance;
     return instance;
 }
+
+PgMapState& threadPgState() {
+    static thread_local PgMapState instance;
+    return instance;
+}
 }  // namespace detail
 
 namespace {
@@ -52,6 +57,15 @@ static c10d::ReduceOp::RedOpType toC10dReduceOp(ReduceOp op) {
 }
 
 static ProcessGroupEntry getEntry(ParallelMode mode) {
+    {
+        auto&                       thread_state = detail::threadPgState();
+        std::lock_guard<std::mutex> lock(thread_state.mutex);
+        auto                        it = thread_state.map.find(mode);
+        if (it != thread_state.map.end()) {
+            return it->second;
+        }
+    }
+
     auto&                       state = detail::globalPgState();
     std::lock_guard<std::mutex> lock(state.mutex);
     auto                        it = state.map.find(mode);
@@ -75,11 +89,30 @@ void registerProcessGroup(ParallelMode mode, c10::intrusive_ptr<c10d::ProcessGro
     state.map[mode]  = std::move(entry);
 }
 
+void registerThreadProcessGroup(ParallelMode mode, c10::intrusive_ptr<c10d::ProcessGroup> pg, int device_id) {
+    auto&                       state = detail::threadPgState();
+    std::lock_guard<std::mutex> lock(state.mutex);
+    ProcessGroupEntry           entry;
+    entry.pg         = std::move(pg);
+    entry.rank       = entry.pg->getRank();
+    entry.world_size = entry.pg->getSize();
+    entry.device_id  = device_id;
+    state.map[mode]  = std::move(entry);
+}
+
 c10::intrusive_ptr<c10d::ProcessGroup> getProcessGroup(ParallelMode mode) {
     return getEntry(mode).pg;
 }
 
 bool hasProcessGroup(ParallelMode mode) {
+    {
+        auto&                       thread_state = detail::threadPgState();
+        std::lock_guard<std::mutex> lock(thread_state.mutex);
+        if (thread_state.map.count(mode) > 0) {
+            return true;
+        }
+    }
+
     auto&                       state = detail::globalPgState();
     std::lock_guard<std::mutex> lock(state.mutex);
     return state.map.count(mode) > 0;
@@ -87,6 +120,12 @@ bool hasProcessGroup(ParallelMode mode) {
 
 void clearProcessGroups() {
     auto&                       state = detail::globalPgState();
+    std::lock_guard<std::mutex> lock(state.mutex);
+    state.map.clear();
+}
+
+void clearThreadProcessGroups() {
+    auto&                       state = detail::threadPgState();
     std::lock_guard<std::mutex> lock(state.mutex);
     state.map.clear();
 }
